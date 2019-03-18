@@ -3,7 +3,7 @@
 # TAG_NAME=$1
 # PUSH_MSG=${@/$1/}
 ./install
-TAG_NAME=`tm -v`
+TAG_NAME=`./version`
 PUSH_MSG=${@}
 
 

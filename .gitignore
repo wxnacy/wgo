@@ -147,5 +147,6 @@ var/
 tmp/*
 *tmp*
 bin/*
+bin/
 
 # for public end
