@@ -1,12 +1,151 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
+# Created by wxnacy for work
+# Byte-compiled / optimized / DLL files
+
+# for python begin
+
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.python-version
+
+# for python end
+
+# C extensions
 *.so
-*.dylib
 
-# Test binary, build with `go test -c`
-*.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*,cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+
+# celery beat schedule file
+celerybeat-schedule
+
+# dotenv
+.env
+
+# virtualenv
+.venv/
+venv/
+ENV/
+
+
+# add by wenxiaoning begin
+.idea/
+.npmignore
+.serverless/
+node_modules/
+*/.serverless/
+*/node_modules/
+*/.cache/
+*/local_config.py
+# add by wenxiaoning end
+
+
+# Spyder project settings
+.spyderproject
+
+# Rope project settings
+.ropeproject
+*.retry
+*/.cache/
+*/local_config.py
+metrics.flask.log
+*/*_temp/
+*/db.json
+*/.DS_Store
+*/output.txt
+shells/tmux/resurrect/*
+shells/tmux/tmux-*
+*local*
+
+# for node begin
+
+node_modules/
+*/node_modules/
+*/npm-debug.log*
+*/yarn-debug.log*
+*/yarn-error.log*
+*.lock
+*/*.lock
+.npmignore
+
+# for node end
+
+# for idea begin
+
+
+.idea/
+.vim/
+*.sw*
+.project
+target/
+
+# for idea end
+
+# for public begin
+
+*.log.*
+*.log
+.DS_Store
 *.out
+.serverless/
+*/.serverless/
+
+# Distribution / packaging
+env/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+tmp/*
+*tmp*
+bin/*
+
+# for public end
