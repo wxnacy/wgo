@@ -9,17 +9,33 @@ import (
 
 
 func completer(d prompt.Document) []prompt.Suggest {
+    line := d.GetWordBeforeCursor()
     var s = make([]prompt.Suggest, 0)
+    // filterString := d.GetWordBeforeCursor()
 
-    for _, d := range Coder().GetImport() {
-        s = append(s, prompt.Suggest{Text: d, Description: ""})
+    if strings.Contains(line, ".") {
+        // filterString = d.GetWordBeforeCursorUntilSeparator(".")
+        pmpts := Complete(line)
+        prefix := line[0:strings.Index(line, ".") + 1]
+
+        // Logger().Debugf("prefix %s", prefix)
+        for _, p := range pmpts {
+            s = append(s, prompt.Suggest{
+                Text: prefix + p.Name, Description: p.Class + " " + p.Type,
+            },)
+        }
+    } else  {
+
+        prompts := GetPromptBySpace()
+        for _, p := range prompts {
+            s = append(s, prompt.Suggest{
+                Text: p.Name, Description: p.Class,
+            },)
+        }
+
     }
-    // s := []prompt.Suggest{
-        // {Text: "fmt", Description: ""},
-        // {Text: "time", Description: ""},
-    // }
-
-    return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
+    // Logger().Debugf("s %v", s)
+    return prompt.FilterContains(s, d.GetWordBeforeCursor(), true)
 }
 
 func executor(t string) {
@@ -48,6 +64,7 @@ func changeLivePrefix() (string, bool) {
 }
 
 func main() {
+    initLogger()
     p := prompt.New(
         executor,
         completer,

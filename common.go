@@ -3,10 +3,35 @@ package main
 import (
     "github.com/wxnacy/wgo/logger"
     "log"
+    "fmt"
+    "os"
+    "time"
+    "strings"
 )
 
-var wlog *logger.Logger
+var wlog *logger.Logger         // 日志
+var tempdir string              // 临时目录
+var tempCmpltFile string
 
+func tempDir() string {
+    if tempdir == "" {
+        tmp := os.TempDir()
+        if !strings.HasSuffix(tmp, "/") {
+            tmp += "/"
+
+        }
+        tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", time.Now().Unix())
+        tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", 0)
+    }
+    return tempdir
+}
+
+func tempCompleteFile() string {
+    if tempCmpltFile == "" {
+        tempCmpltFile = fmt.Sprintf("%swgo_complete.go", tempDir())
+    }
+    return tempCmpltFile
+}
 func Logger() *logger.Logger {
     if wlog == nil {
         wlog = logger.NewLogger()
@@ -15,10 +40,12 @@ func Logger() *logger.Logger {
 }
 
 func initLogger() {
-    h, err := logger.NewRotatingFileHandler("/usr/local/var/log/wgo.log")
+    initTempDir()
+
+    h, err := logger.NewRotatingFileHandler(tempDir() + "wgo.log")
     handlerErr(err)
     Logger().AddHandler(h)
-    Logger().SetLevel(logger.LevelDebug)
+    Logger().SetLevel(logger.LevelError)
 }
 
 func handlerErr(err error) {

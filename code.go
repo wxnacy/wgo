@@ -3,19 +3,26 @@ package main
 import (
     "fmt"
     "os"
-    "time"
     "github.com/wxnacy/wgo/file"
     "github.com/wxnacy/wgo/color"
     "github.com/wxnacy/wgo/util"
+    "github.com/wxnacy/wgo/arrays"
     "os/exec"
     "bytes"
     "strings"
     "errors"
 )
 
-var tempdir string
 var tempfile string
 var code *Code
+
+type CodeMode uint8
+
+const (
+    CodeImport CodeMode = iota
+    CodeFunc
+    CodeMain
+)
 
 type Code struct {
     imports []string
@@ -23,6 +30,7 @@ type Code struct {
     variables []string
     lastInput string
     lastInputUse bool
+    lastInputMode CodeMode
     funcs map[string][]string
     codes []string
 }
@@ -35,7 +43,7 @@ func Coder() *Code {
             codes: make([]string, 0),
             funcs: make(map[string][]string),
         }
-        code.imports = append(code.imports, "fmt", "time")
+        code.imports = append(code.imports, "fmt", "time", "os", "strings")
         code.mainFunc = append(code.mainFunc, "fmt.Sprintf(\"%s\", \"Hello World\")")
     }
     return code
@@ -50,15 +58,13 @@ func (this *Code) clear() {
     this.codes = make([]string, 0)
 }
 
-func (this *Code) Input(line string) {
-    this.lastInput = line
-    this.lastInputUse = false
-}
-
 func (this *Code) GetImport() []string {
     return this.imports
 }
 
+func (this *Code) GetVariables() []string {
+    return this.variables
+}
 
 // 解析 import
 func parseImport(impt string) (string, bool) {
@@ -71,22 +77,35 @@ func parseImport(impt string) (string, bool) {
     return impt, false
 }
 
+func (this *Code) Input(line string) {
+    this.lastInput = line
+    this.lastInputUse = false
+
+    if strings.HasPrefix(line, "var ") || strings.Contains(line, "=") {
+        this.lastInputMode = CodeMain
+    } else if strings.HasPrefix(line, "import") {
+        this.lastInputMode = CodeImport
+    }
+}
+
 func (this *Code) input() {
-    if strings.HasPrefix(this.lastInput, "import") {
-        impt, ok := parseImport(this.lastInput)
-        if ok {
-            hasImport := util.ArrayContains(this.imports, impt)
-            if hasImport == -1 {
-                this.imports = append(this.imports, impt)
+    switch this.lastInputMode {
+        case CodeMain: {
+            if arrays.ArrayContains(this.mainFunc, this.lastInput) == -1 {
+                this.mainFunc = append(this.mainFunc, this.lastInput)
             }
         }
-    } else if strings.HasPrefix(this.lastInput, "fmt.") {
-
-    } else if strings.Contains(this.lastInput, "=") {
-        if has := util.ArrayContains(this.mainFunc, this.lastInput); has == -1 {
-            this.mainFunc = append(this.mainFunc, this.lastInput)
+        case CodeImport: {
+            impt, ok := parseImport(this.lastInput)
+            if ok {
+                hasImport := util.ArrayContains(this.imports, impt)
+                if hasImport == -1 {
+                    this.imports = append(this.imports, impt)
+                }
+            }
         }
     }
+
 
     this.variables = parseCodeVars(this.mainFunc)
 
@@ -112,6 +131,7 @@ func (this *Code) mainFormat() {
     for _, m := range mains {
         this.codes = append(this.codes, m)
     }
+
     varList := parseCodeVars(mains)
 
     for _, v := range varList {
@@ -129,7 +149,14 @@ func parseCodeVars(codes []string) []string {
             vars := strings.Split(variable, ",")
             for _, v := range vars {
                 v = strings.Trim(v, " ")
-                varList = append(varList, v)
+                if arrays.ArrayContains(varList, v) == -1 {
+                    varList = append(varList, v)
+                }
+            }
+        } else if strings.HasPrefix(m, "var ") {
+            vars := strings.Split(m, " ")
+            if len(vars) > 1 && vars[1] != "" && arrays.ArrayContains(varList, vars[1]) == -1{
+                varList = append(varList, vars[1])
             }
         }
     }
@@ -153,7 +180,12 @@ func (this *Code) Format() string {
     if len(this.imports) > 0 {
         for _, d := range this.imports {
             ifmt := ""
-            if strings.Contains(mainString, d + ".") {
+            importName := d
+            if strings.Contains(d, "/") {
+                ims := strings.Split(d, "/")
+                importName = ims[len(ims) - 1]
+            }
+            if strings.Contains(mainString, importName + ".") {
                 ifmt = "\t\"%s\""
             } else {
                 ifmt = "\t_ \"%s\""
@@ -192,6 +224,7 @@ func (this *Code) Run() (string, error){
     }
     errStr := outErr.String()
     if errStr != "" {
+        errStr = strings.Replace(errStr, tempFile() + ":", "", 2)
         fmt.Println(color.Red(errStr))
         this.resetInput()
         return "", errors.New(outErr.String())
@@ -200,14 +233,6 @@ func (this *Code) Run() (string, error){
         // Logger().Debug(out.String())
         return "", nil
     }
-}
-
-func tempDir() string {
-    if tempdir == "" {
-        tempdir = fmt.Sprintf("%s%s-%d/", os.TempDir(), "wgo", time.Now().Unix())
-        tempdir = fmt.Sprintf("%s%s-%d/", os.TempDir(), "wgo", 0)
-    }
-    return tempdir
 }
 
 func tempFile() string {
@@ -219,7 +244,8 @@ func tempFile() string {
 
 func initTempDir() {
     if !file.Exists(tempDir()) {
-        os.Mkdir(tempDir(), 0700)
+        err := os.Mkdir(tempDir(), 0700)
+        handlerErr(err)
     }
 }
 
