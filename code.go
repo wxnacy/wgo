@@ -5,7 +5,6 @@ import (
     "os"
     "github.com/wxnacy/wgo/file"
     "github.com/wxnacy/wgo/color"
-    "github.com/wxnacy/wgo/util"
     "github.com/wxnacy/wgo/arrays"
     "os/exec"
     "bytes"
@@ -66,6 +65,10 @@ func (this *Code) GetVariables() []string {
     return this.variables
 }
 
+func (this *Code) GetMains() []string {
+    return this.mainFunc
+}
+
 // 解析 import
 func parseImport(impt string) (string, bool) {
     if strings.HasPrefix(impt, "import") {
@@ -91,14 +94,14 @@ func (this *Code) Input(line string) {
 func (this *Code) input() {
     switch this.lastInputMode {
         case CodeMain: {
-            if arrays.ArrayContains(this.mainFunc, this.lastInput) == -1 {
+            if arrays.StringsContains(this.mainFunc, this.lastInput) == -1 {
                 this.mainFunc = append(this.mainFunc, this.lastInput)
             }
         }
         case CodeImport: {
             impt, ok := parseImport(this.lastInput)
             if ok {
-                hasImport := util.ArrayContains(this.imports, impt)
+                hasImport := arrays.StringsContains(this.imports, impt)
                 if hasImport == -1 {
                     this.imports = append(this.imports, impt)
                 }
@@ -115,12 +118,12 @@ func (this *Code) input() {
 func (this *Code) mainFormat() {
     var mains = make([]string, 0)
 
-    if util.ArrayContains(this.variables, this.lastInput) > -1 {
+    if arrays.StringsContains(this.variables, this.lastInput) > -1 {
         this.lastInput = fmt.Sprintf("fmt.Println(%s)", this.lastInput)
     }
 
     mains = this.mainFunc
-    has := util.ArrayContains(this.mainFunc, this.lastInput)
+    has := arrays.StringsContains(this.mainFunc, this.lastInput)
     if ! this.lastInputUse && has == -1{
         mains = append(mains, this.lastInput)
     }
@@ -144,18 +147,21 @@ func parseCodeVars(codes []string) []string {
     var varList = make([]string, 0)
     for _, m := range codes {
         if strings.Contains(m, "=") {
+            if strings.HasPrefix(m, "var ") {
+                m = m[4:]
+            }
             variable := strings.Split(m, "=")[0]
             variable = strings.Trim(variable, ":")
             vars := strings.Split(variable, ",")
             for _, v := range vars {
                 v = strings.Trim(v, " ")
-                if arrays.ArrayContains(varList, v) == -1 {
+                if arrays.StringsContains(varList, v) == -1 {
                     varList = append(varList, v)
                 }
             }
         } else if strings.HasPrefix(m, "var ") {
             vars := strings.Split(m, " ")
-            if len(vars) > 1 && vars[1] != "" && arrays.ArrayContains(varList, vars[1]) == -1{
+            if len(vars) > 1 && vars[1] != "" && arrays.StringsContains(varList, vars[1]) == -1{
                 varList = append(varList, vars[1])
             }
         }
@@ -198,7 +204,9 @@ func (this *Code) Format() string {
     this.codes = append(this.codes, "func main() {")
     this.mainFormat()
     this.codes = append(this.codes, "}")
-    return strings.Join(this.codes, "\n")
+    res := strings.Join(this.codes, "\n")
+    Logger().Debugf("run code\n%s", res)
+    return res
 }
 
 func (this *Code) Print() {
@@ -214,6 +222,8 @@ func (this *Code) Run() (string, error){
     cmd.Stdout = &out
     cmd.Stderr = &outErr
     err := cmd.Run()
+    // this.Print()
+    // Logger().Debug(this.Format())
     if err != nil {
         fmt.Println(err)
     }
@@ -263,55 +273,4 @@ func writeCode(code string) {
 }
 
 
-// func Fmt() {
-    // fmt.Println("Hello World ")
-    // tmpdir := os.Getenv("TMPDIR")
-    // fmt.Println(tmpdir)
-    // os.Mkdir("test", 0700)
-    // fmt.Println(os.TempDir())
-    // // os.Create("test/ss")
-    // // os.Chmod("test", 0700
-    // fmt.Println(time.Now().Unix())
-    // fmt.Println(tempDir())
-    // fmt.Println(tempDir())
-    // initTempDir()
-    // // writeCode("package main;import \"fmt\";func main(){fmt.Print(\"hw\")}")
-    // writeCode("package main;import \"fmt\";func main(){fmt.sPrintss(\"hw\")}")
-    // // err := cmd.Start()
-    // // handlerErr(err)
-    // // bytes, err := cmd.Output()
-    // // handlerErr(err)
-    // // fmt.Println("ss", string(bytes))
-// }
 
-// func handlerErr(err error) {
-    // if err != nil {
-        // fmt.Errorf("%s", err)
-    // }
-// }
-
-// func main() {
-    // c := Coder()
-    // c.Input("import \"fmt\"")
-    // // fmt.Println(c.Format())
-    // c.Run()
-    // // fmt.Println(c.Format())
-
-    // c.Input("import \"time\"")
-    // // c.Print()
-    // c.Run()
-    // // c.Print()
-
-    // c.Input("fmt.Println(\"Hello World \")")
-    // // c.Print()
-    // c.Run()
-    // // c.Print()
-    // c.Input("import os strings")
-    // c.Print()
-    // c.Run()
-    // c.Print()
-    // // c.Input("fmt.Println(\"Hello World\")")
-    // // c.Run()
-    // // fmt.Println(c.Format())
-
-// }

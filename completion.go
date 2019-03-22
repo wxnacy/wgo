@@ -42,7 +42,8 @@ func GetPromptBySpace() []Prompt {
 func Complete(s string) []Prompt {
     var codes = make([]string, 0)
     offset := 0                         // 补全 offset
-    imports := Coder().GetImport()
+    c := Coder()
+    imports := c.GetImport()
     p := "package main"
     codes = append(codes, p)
     for _, ipt := range imports {
@@ -50,8 +51,13 @@ func Complete(s string) []Prompt {
         codes = append(codes, impt)
         offset += len(impt) +1
     }
+    mains := c.GetMains()
     m := "func main(){"
     codes = append(codes, m)
+    for _, d := range mains {
+        codes = append(codes, d)
+        offset += len(d) + 1
+    }
     codes = append(codes, s)
     codes = append(codes, "}")
     writeCompleteCode("")
