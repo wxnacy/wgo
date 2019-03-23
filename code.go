@@ -173,6 +173,7 @@ func (this *Code) Format() string {
     this.clear()
     var isLastInput bool
     var mainString = strings.Join(this.mainFunc, "\n")
+    mainString = "\n" + mainString
     mainString += this.lastInput
     this.codes = append(this.codes, "package main")
     if !isLastInput && strings.HasPrefix(this.lastInput, "import") {
@@ -191,7 +192,9 @@ func (this *Code) Format() string {
                 ims := strings.Split(d, "/")
                 importName = ims[len(ims) - 1]
             }
-            if strings.Contains(mainString, importName + ".") {
+            if strings.Contains(mainString, "(" + importName + ".") ||
+            strings.Contains(mainString, " " + importName + ".") ||
+            strings.Contains(mainString, "\n" + importName + ".") {
                 ifmt = "\t\"%s\""
             } else {
                 ifmt = "\t_ \"%s\""
@@ -222,13 +225,10 @@ func (this *Code) Run() (string, error){
     cmd.Stdout = &out
     cmd.Stderr = &outErr
     err := cmd.Run()
-    // this.Print()
-    // Logger().Debug(this.Format())
     if err != nil {
         fmt.Println(err)
     }
     if out.String() != "" {
-        // Logger().Debug(out.String())
         fmt.Println(out.String())
         return out.String(), nil
     }
@@ -240,7 +240,6 @@ func (this *Code) Run() (string, error){
         return "", errors.New(outErr.String())
     } else {
         this.input()
-        // Logger().Debug(out.String())
         return "", nil
     }
 }
@@ -258,11 +257,6 @@ func initTempDir() {
         handlerErr(err)
     }
 }
-
-// func destroyTempDir() {
-    // err := os.RemoveAll(tempDir())
-    // handlerErr(err)
-// }
 
 func writeCode(code string) {
     initTempDir()

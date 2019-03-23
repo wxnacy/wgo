@@ -5,12 +5,12 @@ BIN=wgo
 PWD=`pwd`
 BIN_LINUX=`pwd`/bin/linux_amd64
 BIN_DARWIN=`pwd`/bin/darwin_amd64
-VER=`cat ./version`
 
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go install $SOURCE_DIR
 # CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go install $SOURCE_DIR
 # CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go install $SOURCE_DIR
 go install $SOURCE_DIR
+VER=`wgo version`
 
 test -d bin || mkdir bin
 test -d bin/linux_amd64 || mkdir bin/linux_amd64

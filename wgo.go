@@ -6,6 +6,8 @@ import (
 
     "strings"
     "os"
+    "fmt"
+    "flag"
 )
 
 
@@ -66,8 +68,43 @@ func changeLivePrefix() (string, bool) {
     return LivePrefixState.LivePrefix, LivePrefixState.IsEnable
 }
 
+var VER = `%s
+Wgo version %s
+Copyright (C) 2019 wxnacy
+`
+
+const (
+    VERSION = "1.0.3"
+)
+
+var args []string
+func initArgs() {
+    flag.Parse()
+    args = flag.Args()
+    // fmt.Println(args)
+    // fmt.Println(os.Args)
+}
+
+func commandArgs() {
+    if len(args) > 0 {
+        arg := args[0]
+        switch arg {
+            case "version": {
+                fmt.Println(VERSION)
+                os.Exit(0)
+            }
+        }
+    }
+}
+
 func main() {
+    initArgs()
+    commandArgs()
     initLogger()
+
+    goVer, _ := commands.Command("go", "version")
+
+    fmt.Println(fmt.Sprintf(VER, goVer, VERSION))
     p := prompt.New(
         executor,
         completer,
@@ -75,4 +112,5 @@ func main() {
         prompt.OptionLivePrefix(changeLivePrefix),
     )
     p.Run()
+    destroyTempDir()
 }

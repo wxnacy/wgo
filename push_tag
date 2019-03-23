@@ -3,9 +3,8 @@
 # TAG_NAME=$1
 # PUSH_MSG=${@/$1/}
 ./install
-TAG_NAME=`cat ./version`
+TAG_NAME=`wgo version`
 PUSH_MSG=${@}
-
 
 main(){
     git pull origin master

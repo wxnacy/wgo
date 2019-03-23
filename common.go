@@ -21,9 +21,14 @@ func tempDir() string {
 
         }
         tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", time.Now().Unix())
-        tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", 0)
+        // tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", 0)
     }
     return tempdir
+}
+
+func destroyTempDir() {
+    err := os.RemoveAll(tempDir())
+    handlerErr(err)
 }
 
 func tempCompleteFile() string {
