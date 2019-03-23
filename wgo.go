@@ -2,6 +2,7 @@ package main
 
 import (
     "github.com/c-bata/go-prompt"
+    "github.com/hpcloud/tail"
     "github.com/wxnacy/wgo/commands"
 
     "strings"
@@ -93,6 +94,15 @@ func commandArgs() {
                 fmt.Println(VERSION)
                 os.Exit(0)
             }
+            case "logs": {
+                t, _ := tail.TailFile(tempDir() + "wgo.log", tail.Config{Follow: true})
+                for {
+
+                    for line := range t.Lines {
+                        fmt.Println(line.Text)
+                    }
+                }
+            }
         }
     }
 }
@@ -101,16 +111,17 @@ func main() {
     initArgs()
     commandArgs()
     initLogger()
-
     goVer, _ := commands.Command("go", "version")
-
     fmt.Println(fmt.Sprintf(VER, goVer, VERSION))
-    p := prompt.New(
-        executor,
-        completer,
-        prompt.OptionPrefix(">>> "),
-        prompt.OptionLivePrefix(changeLivePrefix),
-    )
-    p.Run()
-    destroyTempDir()
+    if len(args) == 0 {
+
+        p := prompt.New(
+            executor,
+            completer,
+            prompt.OptionPrefix(">>> "),
+            prompt.OptionLivePrefix(changeLivePrefix),
+        )
+        p.Run()
+    }
+    // destroyTempDir()
 }

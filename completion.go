@@ -28,7 +28,7 @@ type Prompt struct {
 func GetPromptBySpace() []Prompt {
     var prompts = make([]Prompt, 0)
 
-    for _, impt := range Coder().GetImport() {
+    for _, impt := range Coder().GetImportNames() {
         prompts = append(prompts, Prompt{Name: impt, Class: "package"})
     }
 
@@ -43,7 +43,7 @@ func Complete(s string) []Prompt {
     var codes = make([]string, 0)
     offset := 0                         // 补全 offset
     c := Coder()
-    imports := c.GetImport()
+    imports := c.GetImports()
     p := "package main"
     codes = append(codes, p)
     for _, ipt := range imports {
