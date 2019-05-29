@@ -68,6 +68,10 @@ $ go get -u github.com/mdempsky/gocode
 
 ## 更新日志
 
+### 1.0.4
+- 支持 `import` 设置别名
+- 支持更多的打印命令
+
 ### 1.0.3
 - 修复没有安装 `gocode` 报错的 bug
 - 增加 `var x = 1` 表达式的运行

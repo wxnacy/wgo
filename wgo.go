@@ -11,6 +11,9 @@ import (
     "flag"
 )
 
+const (
+    VERSION = "1.0.3"
+)
 
 func completer(d prompt.Document) []prompt.Suggest {
     line := d.GetWordBeforeCursor()
@@ -74,9 +77,6 @@ Wgo version %s
 Copyright (C) 2019 wxnacy
 `
 
-const (
-    VERSION = "1.0.3"
-)
 
 var args []string
 func initArgs() {

@@ -23,9 +23,46 @@ const (
     CodeMain
 )
 
+type Import struct {
+    Name string
+    Aliasname string
+}
+
+func newImport(input string) Import {
+    var name string
+    var aliasname string
+    if strings.HasPrefix(input, "import") {
+        ipt := input[6:]
+        ipt = strings.Trim(ipt, " ")
+        ipt = strings.Trim(ipt, "\"")
+        if strings.Contains(ipt, "\"") {
+            na := strings.Split(ipt, "\"")
+            aliasname = strings.Trim(na[0], " ")
+            name = strings.Trim(na[1], " ")
+
+        } else {
+            name = ipt
+            aliasname = name
+            if strings.Contains(name, "/") {
+                names := strings.Split(name, "/")
+                aliasname = names[len(names) - 1]
+            }
+        }
+
+    } else {
+        name = input
+        aliasname = name
+        if strings.Contains(input, "/") {
+            names := strings.Split(input, "/")
+            aliasname = names[len(names) - 1]
+        }
+    }
+    i := Import{Name:name, Aliasname: aliasname}
+    return i
+}
+
 type Code struct {
-    imports []string
-    importNames []string
+    importMap map[string]Import
     mainFunc []string
     variables []string
     lastInput string
@@ -38,20 +75,15 @@ type Code struct {
 func Coder() *Code {
     if code == nil {
         code = &Code{
-            imports: make([]string, 0),
-            importNames: make([]string, 0),
+            importMap: make(map[string]Import),
             mainFunc: make([]string, 0),
             codes: make([]string, 0),
             funcs: make(map[string][]string),
         }
-        // code.imports = append(code.imports, "fmt", "time", "os", "strings", "runtime")
-        code.inputImport("import \"fmt\"")
-        code.inputImport("import \"time\"")
-        code.inputImport("import \"os\"")
-        code.inputImport("import \"os/exec\"")
-        code.inputImport("import \"strings\"")
-        code.inputImport("import \"runtime\"")
-        code.mainFunc = append(code.mainFunc, "fmt.Sprintf(\"%s\", \"Hello World\")")
+        code.importMap["fmt"] = newImport("fmt")
+        code.importMap["os"] = newImport("os")
+        code.importMap["time"] = newImport("time")
+        code.importMap["runtime"] = newImport("runtime")
     }
     return code
 }
@@ -65,12 +97,24 @@ func (this *Code) clear() {
     this.codes = make([]string, 0)
 }
 
+func (this *Code) GetImportMap() map[string]Import {
+    return this.importMap
+}
+
 func (this *Code) GetImports() []string {
-    return this.imports
+    res := make([]string, 0)
+    for k, _ := range this.importMap {
+        res = append(res, k)
+    }
+    return res
 }
 
 func (this *Code) GetImportNames() []string {
-    return this.importNames
+    res := make([]string, 0)
+    for _, v := range this.importMap {
+        res = append(res, v.Aliasname)
+    }
+    return res
 }
 
 func (this *Code) GetVariables() []string {
@@ -81,26 +125,16 @@ func (this *Code) GetMains() []string {
     return this.mainFunc
 }
 
-// 解析 import
-func parseImport(impt string) (string, bool) {
-    if strings.HasPrefix(impt, "import") {
-        ipt := impt[6:]
-        ipt = strings.Trim(ipt, " ")
-        ipt = strings.Trim(ipt, "\"")
-        return ipt, true
-    }
-    return impt, false
-}
-
 func (this *Code) Input(line string) {
     this.lastInput = line
     this.lastInputUse = false
 
-    if strings.HasPrefix(line, "var ") || strings.Contains(line, "=") {
-        this.lastInputMode = CodeMain
-    } else if strings.HasPrefix(line, "import") {
+    if strings.HasPrefix(line, "import") {
         this.lastInputMode = CodeImport
+    } else {
+        this.lastInputMode = CodeMain
     }
+
 }
 
 // 处理输入命令
@@ -121,48 +155,54 @@ func (this *Code) input() {
 
 // 输入 import
 func (this *Code) inputImport(input string) {
-    impt, ok := parseImport(input)
-    if ok {
-        hasImport := arrays.StringsContains(this.imports, impt)
-        if hasImport == -1 {
-            this.imports = append(this.imports, impt)
-            if strings.Contains(impt, "/") {
-                imps := strings.Split(impt, "/")
-                imp := imps[len(imps) - 1]
-                this.importNames = append(this.imports, imp)
-            } else {
-                this.importNames = append(this.imports, impt)
-            }
-        }
-    }
+    impot := newImport(input)
+    this.importMap[impot.Name] = impot
 }
 
+func (this *Code) makePrintCode(input string) string {
+    return fmt.Sprintf(
+        "%s.Println(%s)", this.importMap["fmt"].Aliasname, input,
+    )
+}
 
-func (this *Code) mainFormat() {
+func (this *Code) mainFormat() []string {
     var mains = make([]string, 0)
+    var codes = make([]string, 0)
 
     if arrays.StringsContains(this.variables, this.lastInput) > -1 {
-        this.lastInput = fmt.Sprintf("fmt.Println(%s)", this.lastInput)
+        this.lastInput = this.makePrintCode(this.lastInput)
+    }
+    if strings.Count(this.lastInput, ".") == 1 {
+        index := strings.Index(this.lastInput, ".")
+        imptName := this.lastInput[0:index]
+        I, ok := this.importMap[imptName]
+
+        // if (ok && I.Name != "fmt") ||
+        // strings.HasPrefix(this.lastInput, this.importMap["fmt"].Aliasname + ".Sp") {
+        if (ok && I.Name != "fmt") {
+            this.lastInput = this.makePrintCode(this.lastInput)
+        }
     }
 
     mains = this.mainFunc
     has := arrays.StringsContains(this.mainFunc, this.lastInput)
-    if ! this.lastInputUse && has == -1{
+    if !strings.HasPrefix(this.lastInput, "import") && has == -1{
         mains = append(mains, this.lastInput)
     }
     if len(mains) == 0 {
-        return
+        return codes
     }
 
     for _, m := range mains {
-        this.codes = append(this.codes, m)
+        codes = append(codes, m)
     }
 
     varList := parseCodeVars(mains)
 
     for _, v := range varList {
-        this.codes = append(this.codes, "_ = " + v)
+        codes = append(codes, "_ = " + v)
     }
+    return codes
 }
 
 // 解析代码中的变量
@@ -195,42 +235,44 @@ func parseCodeVars(codes []string) []string {
 func (this *Code) Format() string {
     this.clear()
     var isLastInput bool
-    var mainString = strings.Join(this.mainFunc, "\n")
+    mains := this.mainFormat()
+    var mainString = strings.Join(mains, "\n")
     mainString = "\n" + mainString
     mainString += this.lastInput
     Logger().Debug(mainString)
     this.codes = append(this.codes, "package main")
     if !isLastInput && strings.HasPrefix(this.lastInput, "import") {
-        impt := "import _ " + this.lastInput[6:]
+        im := newImport(this.lastInput)
+        impt := fmt.Sprintf("import _ \"%s\"", im.Name)
         this.codes = append(this.codes, impt)
         isLastInput = true
         this.lastInputUse = true
     }
 
     this.codes = append(this.codes, "import (")
-    if len(this.imports) > 0 {
-        for _, d := range this.imports {
+    if len(this.importMap) > 0 {
+        for k, v := range this.importMap {
+            Logger().Debugf("import %v", v)
             ifmt := ""
-            importName := d
-            if strings.Contains(d, "/") {
-                ims := strings.Split(d, "/")
-                importName = ims[len(ims) - 1]
-            }
+            importName := v.Aliasname
             if strings.Contains(mainString, "(" + importName + ".") ||
                 strings.Contains(mainString, ")" + importName + ".") ||
                 strings.Contains(mainString, " " + importName + ".") ||
                 strings.Contains(mainString, "\n" + importName + ".") {
-                ifmt = "\t\"%s\""
+                ifmt = "\t%s \"%s\""
+                ifmt = fmt.Sprintf(ifmt, v.Aliasname, k)
             } else {
                 ifmt = "\t_ \"%s\""
+                ifmt = fmt.Sprintf(ifmt, k)
+
             }
-            this.codes = append(this.codes, fmt.Sprintf(ifmt, d))
+            this.codes = append(this.codes, ifmt)
 
         }
     }
     this.codes = append(this.codes, ")")
     this.codes = append(this.codes, "func main() {")
-    this.mainFormat()
+    this.codes = append(this.codes, mains...)
     this.codes = append(this.codes, "}")
     res := strings.Join(this.codes, "\n")
     Logger().Debugf("run code\n%s", res)

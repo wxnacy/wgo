@@ -43,11 +43,11 @@ func Complete(s string) []Prompt {
     var codes = make([]string, 0)
     offset := 0                         // 补全 offset
     c := Coder()
-    imports := c.GetImports()
+    // imports := c.GetImports()
     p := "package main"
     codes = append(codes, p)
-    for _, ipt := range imports {
-        impt := fmt.Sprintf("import \"%s\"", ipt)
+    for k, v := range c.GetImportMap() {
+        impt := fmt.Sprintf("import %s \"%s\"", v.Aliasname, k)
         codes = append(codes, impt)
         offset += len(impt) +1
     }
