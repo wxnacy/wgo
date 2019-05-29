@@ -23,22 +23,32 @@ func TestStringsContains(t *testing.T) {
 }
 
 func TestIntsContains(t *testing.T) {
-    var arr = []int{1, 3, 4, 8, 12, 4, 9}
+    var arr = []int64{1, 3, 4, 8, 12, 4, 9}
     var s = 8
-    i := IntsContains(arr, s)
+    i := ContainsInt(arr, int64(s))
     if i != 3 {
         t.Error(i)
     }
 }
 
-func TestFloatsContains(t *testing.T) {
+func TestContainsFloat64(t *testing.T) {
     var arr = []float64{1.2, 3.4, 5.6}
     var s = 3.4
-    i := FloatsContains(arr, s)
+    i := ContainsFloat(arr, s)
     if i != 1 {
         t.Error(i)
     }
 }
+
+// func TestContainsFloat32(t *testing.T) {
+    // var arr = []float32{1.2, 3.4, 5.6}
+    // var s float32
+    // s = 3.4
+    // i := ContainsFloat32(arr, s)
+    // if i != 1 {
+        // t.Error(i)
+    // }
+// }
 
 func TestStringsDeduplicate(t *testing.T) {
     var arr = []string{"a", "b", "c", "a", "c"}
