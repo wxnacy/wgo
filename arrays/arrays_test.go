@@ -24,9 +24,13 @@ func TestStringsContains(t *testing.T) {
 
 func TestIntsContains(t *testing.T) {
     var arr = []int64{1, 3, 4, 8, 12, 4, 9}
-    var s = 8
+    var s = 12
     i := ContainsInt(arr, int64(s))
-    if i != 3 {
+    if i != 4 {
+        t.Error(i)
+    }
+    i = Contains(arr, int64(s))
+    if i != 4 {
         t.Error(i)
     }
 }

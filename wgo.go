@@ -11,10 +11,7 @@ import (
     "flag"
 )
 
-const (
-    VERSION = "1.0.3"
-)
-
+// 输入提示
 func completer(d prompt.Document) []prompt.Suggest {
     line := d.GetWordBeforeCursor()
     var s = make([]prompt.Suggest, 0)
@@ -47,6 +44,7 @@ func completer(d prompt.Document) []prompt.Suggest {
     return prompt.FilterContains(s, d.GetWordBeforeCursor(), true)
 }
 
+// 执行
 func executor(t string) {
     cmd := strings.Split(t, " ")[0]
 

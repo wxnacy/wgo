@@ -3,7 +3,7 @@
 # TAG_NAME=$1
 # PUSH_MSG=${@/$1/}
 ./install
-TAG_NAME=`wgo version`
+TAG_NAME=v`wgo version`
 PUSH_MSG=${@}
 
 main(){

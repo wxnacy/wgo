@@ -4,7 +4,7 @@ wgo 是类似 Python 命令的脚本化运行工具。
 
 ## 预览
 
-![wgo](wgo.gif)
+![1](https://raw.githubusercontent.com/wxnacy/image/master/blog/wgo1.gif)
 
 ## 安装
 
@@ -68,12 +68,5 @@ $ go get -u github.com/mdempsky/gocode
 
 ## 更新日志
 
-### 1.0.4
-- 支持 `import` 设置别名
-- 支持更多的打印命令
+[HISTORY](HISTORY.md)
 
-### 1.0.3
-- 修复没有安装 `gocode` 报错的 bug
-- 增加 `var x = 1` 表达式的运行
-- 增加运行时的版本信息
-- 修改导入包异常的 bug
