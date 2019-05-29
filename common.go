@@ -5,7 +5,7 @@ import (
     "log"
     "fmt"
     "os"
-    "time"
+    // "time"
     "strings"
 )
 
@@ -20,7 +20,7 @@ func tempDir() string {
             tmp += "/"
 
         }
-        tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", time.Now().Unix())
+        // tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", time.Now().Unix())
         tempdir = fmt.Sprintf("%s%s-%d/", tmp, "wgo", 0)
     }
     return tempdir
@@ -37,6 +37,7 @@ func tempCompleteFile() string {
     }
     return tempCmpltFile
 }
+
 func Logger() *logger.Logger {
     if wlog == nil {
         wlog = logger.NewLogger()

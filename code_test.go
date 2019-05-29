@@ -2,6 +2,7 @@ package main
 
 import (
      "testing"
+    "github.com/wxnacy/wgo/arrays"
 )
 
 var out string
@@ -76,3 +77,4 @@ func TestInputRun3(t *testing.T) {
     }
 
 }
+

@@ -8,6 +8,7 @@ import (
     "bytes"
     "strconv"
     "encoding/json"
+    "github.com/wxnacy/wgo/codes"
 )
 
 func writeCompleteCode(code string) {
@@ -34,6 +35,10 @@ func GetPromptBySpace() []Prompt {
 
     for _, impt := range Coder().GetVariables() {
         prompts = append(prompts, Prompt{Name: impt, Class: "variable"})
+    }
+
+    for _, impt := range codes.GetKeywords() {
+        prompts = append(prompts, Prompt{Name: impt, Class: "keyword"})
     }
 
     return prompts

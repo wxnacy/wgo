@@ -9,6 +9,7 @@ import (
     "os"
     "fmt"
     "flag"
+    "time"
 )
 
 // 输入提示
@@ -46,6 +47,7 @@ func completer(d prompt.Document) []prompt.Suggest {
 
 // 执行
 func executor(t string) {
+    b := time.Now()
     cmd := strings.Split(t, " ")[0]
 
     switch cmd {
@@ -58,6 +60,7 @@ func executor(t string) {
 
         }
     }
+    Logger().Debugf("once command time used: %v", time.Since(b))
     return
 }
 

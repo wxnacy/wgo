@@ -6,10 +6,12 @@ import (
     "github.com/wxnacy/wgo/file"
     "github.com/wxnacy/wgo/color"
     "github.com/wxnacy/wgo/arrays"
+    "github.com/wxnacy/wgo/codes"
     "os/exec"
     "bytes"
     "strings"
     "errors"
+    "time"
 )
 
 var tempfile string
@@ -141,7 +143,7 @@ func (this *Code) Input(line string) {
 func (this *Code) input() {
     switch this.lastInputMode {
         case CodeMain: {
-            if arrays.StringsContains(this.mainFunc, this.lastInput) == -1 {
+            if arrays.ContainsString(this.mainFunc, this.lastInput) == -1 {
                 this.mainFunc = append(this.mainFunc, this.lastInput)
             }
         }
@@ -149,7 +151,7 @@ func (this *Code) input() {
             this.inputImport(this.lastInput)
         }
     }
-    this.variables = parseCodeVars(this.mainFunc)
+    this.variables = codes.ParseVarnamesFromArray(this.mainFunc)
     this.resetInput()
 }
 
@@ -167,9 +169,9 @@ func (this *Code) makePrintCode(input string) string {
 
 func (this *Code) mainFormat() []string {
     var mains = make([]string, 0)
-    var codes = make([]string, 0)
+    var res = make([]string, 0)
 
-    if arrays.StringsContains(this.variables, this.lastInput) > -1 {
+    if arrays.ContainsString(this.variables, this.lastInput) > -1 {
         this.lastInput = this.makePrintCode(this.lastInput)
     }
     if strings.Count(this.lastInput, ".") == 1 {
@@ -185,54 +187,55 @@ func (this *Code) mainFormat() []string {
     }
 
     mains = this.mainFunc
-    has := arrays.StringsContains(this.mainFunc, this.lastInput)
+    has := arrays.ContainsString(this.mainFunc, this.lastInput)
     if !strings.HasPrefix(this.lastInput, "import") && has == -1{
         mains = append(mains, this.lastInput)
     }
     if len(mains) == 0 {
-        return codes
+        return res
     }
 
     for _, m := range mains {
-        codes = append(codes, m)
+        res = append(res, m)
     }
 
-    varList := parseCodeVars(mains)
+    varList := codes.ParseVarnamesFromArray(mains)
 
     for _, v := range varList {
-        codes = append(codes, "_ = " + v)
+        res = append(res, "_ = " + v)
     }
-    return codes
+    return res
 }
 
 // 解析代码中的变量
-func parseCodeVars(codes []string) []string {
-    var varList = make([]string, 0)
-    for _, m := range codes {
-        if strings.Contains(m, "=") {
-            if strings.HasPrefix(m, "var ") {
-                m = m[4:]
-            }
-            variable := strings.Split(m, "=")[0]
-            variable = strings.Trim(variable, ":")
-            vars := strings.Split(variable, ",")
-            for _, v := range vars {
-                v = strings.Trim(v, " ")
-                if arrays.StringsContains(varList, v) == -1 {
-                    varList = append(varList, v)
-                }
-            }
-        } else if strings.HasPrefix(m, "var ") {
-            vars := strings.Split(m, " ")
-            if len(vars) > 1 && vars[1] != "" && arrays.StringsContains(varList, vars[1]) == -1{
-                varList = append(varList, vars[1])
-            }
-        }
-    }
-    return varList
-}
+// func parseCodeVars(codes []string) []string {
+    // var varList = make([]string, 0)
+    // for _, m := range codes {
+        // if strings.Contains(m, "=") {
+            // if strings.HasPrefix(m, "var ") {
+                // m = m[4:]
+            // }
+            // variable := strings.Split(m, "=")[0]
+            // variable = strings.Trim(variable, ":")
+            // vars := strings.Split(variable, ",")
+            // for _, v := range vars {
+                // v = strings.Trim(v, " ")
+                // if arrays.ContainsString(varList, v) == -1 {
+                    // varList = append(varList, v)
+                // }
+            // }
+        // } else if strings.HasPrefix(m, "var ") {
+            // vars := strings.Split(m, " ")
+            // if len(vars) > 1 && vars[1] != "" && arrays.ContainsString(varList, vars[1]) == -1{
+                // varList = append(varList, vars[1])
+            // }
+        // }
+    // }
+    // return varList
+// }
 
 func (this *Code) Format() string {
+    b := time.Now()
     this.clear()
     var isLastInput bool
     mains := this.mainFormat()
@@ -276,6 +279,7 @@ func (this *Code) Format() string {
     this.codes = append(this.codes, "}")
     res := strings.Join(this.codes, "\n")
     Logger().Debugf("run code\n%s", res)
+    Logger().Debugf("Format time used: %v", time.Since(b))
     return res
 }
 
