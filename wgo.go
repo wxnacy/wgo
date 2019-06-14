@@ -23,6 +23,10 @@ func completer(d prompt.Document) []prompt.Suggest {
         _, ok := commands.HasCommand("gocode")
         if ok {
             prompts = Complete(line)
+            // for _, d := range prompts {
+                // Logger().Debug(d)
+
+            // }
         }
         prefix := line[0:strings.Index(line, ".") + 1]
 

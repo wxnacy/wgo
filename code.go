@@ -86,6 +86,8 @@ func Coder() *Code {
         code.importMap["os"] = newImport("os")
         code.importMap["time"] = newImport("time")
         code.importMap["runtime"] = newImport("runtime")
+        code.importMap["strings"] = newImport("strings")
+        code.importMap["sort"] = newImport("sort")
     }
     return code
 }
@@ -111,6 +113,7 @@ func (this *Code) GetImports() []string {
     return res
 }
 
+// 获取导入包的别名列表
 func (this *Code) GetImportNames() []string {
     res := make([]string, 0)
     for _, v := range this.importMap {
@@ -161,12 +164,14 @@ func (this *Code) inputImport(input string) {
     this.importMap[impot.Name] = impot
 }
 
+// 拼接打印语句
 func (this *Code) makePrintCode(input string) string {
     return fmt.Sprintf(
         "%s.Println(%s)", this.importMap["fmt"].Aliasname, input,
     )
 }
 
+// 格式化代码
 func (this *Code) mainFormat() []string {
     var mains = make([]string, 0)
     var res = make([]string, 0)
@@ -178,11 +183,30 @@ func (this *Code) mainFormat() []string {
         index := strings.Index(this.lastInput, ".")
         imptName := this.lastInput[0:index]
         I, ok := this.importMap[imptName]
+        // Logger().Debug(GetPrompts())
 
-        // if (ok && I.Name != "fmt") ||
-        // strings.HasPrefix(this.lastInput, this.importMap["fmt"].Aliasname + ".Sp") {
         if (ok && I.Name != "fmt") {
-            this.lastInput = this.makePrintCode(this.lastInput)
+            i := strings.Index(this.lastInput, "(")
+            funcName := this.lastInput
+            if i > -1 {
+                funcName = this.lastInput[index+1:i]
+            }
+            canPrint := true
+            // 判断当前输入的命令行是否有返回值
+            for _, d := range GetPrompts() {
+                Logger().Debug(d)
+                if d.Package == I.Name && d.Name == funcName {
+                    Logger().Debug(d.Type)
+                    isReturnIndex := strings.Index(d.Type, ")")
+                    if len(d.Type) - 1 <= isReturnIndex {
+                        canPrint = false
+                    }
+
+                }
+            }
+            if canPrint {
+                this.lastInput = this.makePrintCode(this.lastInput)
+            }
         }
     }
 
@@ -204,36 +228,11 @@ func (this *Code) mainFormat() []string {
     for _, v := range varList {
         res = append(res, "_ = " + v)
     }
+    clearPrintPrompts()
     return res
 }
 
-// 解析代码中的变量
-// func parseCodeVars(codes []string) []string {
-    // var varList = make([]string, 0)
-    // for _, m := range codes {
-        // if strings.Contains(m, "=") {
-            // if strings.HasPrefix(m, "var ") {
-                // m = m[4:]
-            // }
-            // variable := strings.Split(m, "=")[0]
-            // variable = strings.Trim(variable, ":")
-            // vars := strings.Split(variable, ",")
-            // for _, v := range vars {
-                // v = strings.Trim(v, " ")
-                // if arrays.ContainsString(varList, v) == -1 {
-                    // varList = append(varList, v)
-                // }
-            // }
-        // } else if strings.HasPrefix(m, "var ") {
-            // vars := strings.Split(m, " ")
-            // if len(vars) > 1 && vars[1] != "" && arrays.ContainsString(varList, vars[1]) == -1{
-                // varList = append(varList, vars[1])
-            // }
-        // }
-    // }
-    // return varList
-// }
-
+// 格式化全部代码
 func (this *Code) Format() string {
     b := time.Now()
     this.clear()
@@ -242,7 +241,7 @@ func (this *Code) Format() string {
     var mainString = strings.Join(mains, "\n")
     mainString = "\n" + mainString
     mainString += this.lastInput
-    Logger().Debug(mainString)
+    // Logger().Debug(mainString)
     this.codes = append(this.codes, "package main")
     if !isLastInput && strings.HasPrefix(this.lastInput, "import") {
         im := newImport(this.lastInput)
@@ -278,7 +277,7 @@ func (this *Code) Format() string {
     this.codes = append(this.codes, mains...)
     this.codes = append(this.codes, "}")
     res := strings.Join(this.codes, "\n")
-    Logger().Debugf("run code\n%s", res)
+    // Logger().Debugf("run code\n%s", res)
     Logger().Debugf("Format time used: %v", time.Since(b))
     return res
 }

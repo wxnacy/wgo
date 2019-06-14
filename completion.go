@@ -44,6 +44,16 @@ func GetPromptBySpace() []Prompt {
     return prompts
 }
 
+var tmpPrompts []Prompt
+
+func GetPrompts() []Prompt {
+    return tmpPrompts
+}
+
+func clearPrintPrompts() {
+    tmpPrompts = make([]Prompt, 0)
+}
+
 func Complete(s string) []Prompt {
     var codes = make([]string, 0)
     offset := 0                         // 补全 offset
@@ -78,9 +88,14 @@ func Complete(s string) []Prompt {
     cmd.Stdout = &out
     cmd.Run()
     cmp := out.String()
+    // Logger().Debugf(cmp)
     cmp = cmp[3:len(cmp)-2]
     var prompts []Prompt
     json.Unmarshal([]byte(cmp), &prompts)
+    if strings.HasSuffix(s, ".") && len(tmpPrompts) == 0 {
+        // tmpPrompts = make([]Prompt, 0)
+        tmpPrompts = prompts
+    }
 
     return prompts
 }
