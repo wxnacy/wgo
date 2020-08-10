@@ -179,9 +179,11 @@ func (this *Code) mainFormat() []string {
     if arrays.ContainsString(this.variables, this.lastInput) > -1 {
         this.lastInput = this.makePrintCode(this.lastInput)
     }
-    if strings.Count(this.lastInput, ".") == 1 {
-        index := strings.Index(this.lastInput, ".")
+    // if strings.Count(this.lastInput, ".") >= 1 {
+    if index := strings.Index(this.lastInput, "."); index > -1 {
+        // index := strings.Index(this.lastInput, ".")
         imptName := this.lastInput[0:index]
+        // Logger().Debugf("import %s", imptName)
         I, ok := this.importMap[imptName]
         // Logger().Debug(GetPrompts())
 
@@ -191,17 +193,17 @@ func (this *Code) mainFormat() []string {
             if i > -1 {
                 funcName = this.lastInput[index+1:i]
             }
+            // Logger().Debugf("func %s", funcName)
             canPrint := true
             // 判断当前输入的命令行是否有返回值
             for _, d := range GetPrompts() {
-                Logger().Debug(d)
+                // Logger().Debug(d)
                 if d.Package == I.Name && d.Name == funcName {
-                    Logger().Debug(d.Type)
+                    // Logger().Debug(d.Type)
                     isReturnIndex := strings.Index(d.Type, ")")
                     if len(d.Type) - 1 <= isReturnIndex {
                         canPrint = false
                     }
-
                 }
             }
             if canPrint {
@@ -254,7 +256,7 @@ func (this *Code) Format() string {
     this.codes = append(this.codes, "import (")
     if len(this.importMap) > 0 {
         for k, v := range this.importMap {
-            Logger().Debugf("import %v", v)
+            // Logger().Debugf("import %v", v)
             ifmt := ""
             importName := v.Aliasname
             if strings.Contains(mainString, "(" + importName + ".") ||

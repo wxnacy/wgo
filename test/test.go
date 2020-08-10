@@ -4,15 +4,10 @@ import (
     "fmt"
 )
 
-
 func main() {
-
-    var a interface{}
-    var b interface{}
-
-    a = "a"
-    b = "b"
-
-    fmt.Println(a.type == b.type)
-
+    a := 1
+    fmt.Println(a)
+    var b = "wxnacy"
+    fmt.Println(b)
+    fmt.Println("Hello World")
 }

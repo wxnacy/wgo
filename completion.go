@@ -78,7 +78,7 @@ func Complete(s string) []Prompt {
     writeCompleteCode("")
     writeCompleteCode(strings.Join(codes, "\n"))
     offset += len(p) + len(m) + 2 + len(s)
-    Logger().Debugf("offset %d", offset)
+    // Logger().Debugf("offset %d", offset)
 
     cmd := exec.Command(
         "gocode", "-in=" + tempCompleteFile(), "-f=json", "autocomplete",
@@ -92,9 +92,13 @@ func Complete(s string) []Prompt {
     cmp = cmp[3:len(cmp)-2]
     var prompts []Prompt
     json.Unmarshal([]byte(cmp), &prompts)
+    // Logger().Debug(len(tmpPrompts))
     if strings.HasSuffix(s, ".") && len(tmpPrompts) == 0 {
+        Logger().Debug("input prompt")
         // tmpPrompts = make([]Prompt, 0)
         tmpPrompts = prompts
+        // Logger().Debug(len(tmpPrompts))
+
     }
 
     return prompts
