@@ -4,7 +4,7 @@ wgo 是类似 Python 命令的脚本化运行工具。
 
 ## 预览
 
-![1](https://raw.githubusercontent.com/wxnacy/image/master/blog/wgo1.gif)
+![wgo1](screen/wgo1.gif)
 
 ## 安装
 
@@ -64,7 +64,7 @@ $ go get -u github.com/mdempsky/gocode
 
 现在的代码补全功能，如果当行代码比较复杂，需要在想要补全的报名前加一个空格，这不影响代码输出，只是稍微有点别扭，比如：
 
-![wgo1](wgo1.gif)
+![wgo](screen/wgo.gif)
 
 ## 更新日志
 
