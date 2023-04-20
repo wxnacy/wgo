@@ -115,7 +115,7 @@ func commandArgs() {
 	}
 }
 
-func main() {
+func oldMain() {
 	initArgs()
 	commandArgs()
 	initLogger()
