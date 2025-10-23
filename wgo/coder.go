@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/wxnacy/gotool"
+	"github.com/wxnacy/go-tools"
 	"github.com/wxnacy/wgo/commands"
 )
 
@@ -28,6 +28,7 @@ type Coder struct {
 }
 
 func (c *Coder) Run() error {
+	c.init()
 	res, err := commands.Command("go", "run", c.tmpPath)
 	if err != nil {
 		return err
@@ -37,11 +38,7 @@ func (c *Coder) Run() error {
 }
 
 func (c *Coder) AddCode(code string) *Coder {
-	if !strings.HasPrefix(code, "fmt.Print") {
-		code = fmt.Sprintf("fmt.Println(%s)", code)
-	}
 	c.codeLines = append(c.codeLines, code)
-	c.init()
 	return c
 }
 
@@ -60,8 +57,21 @@ func (c *Coder) init() error {
 
 // 拼接代码
 func (c *Coder) joinCode() error {
-	wholeCode := fmt.Sprintf(simpleMainFormat, strings.Join(c.codeLines, ";"))
-	gotool.FileWriteWithInterface(c.tmpPath, wholeCode)
+	// 对最后一行代码进行结果输出
+	lastCode := c.codeLines[len(c.codeLines)-1]
+	if !strings.HasPrefix(lastCode, "fmt.Print") {
+		lastCode = fmt.Sprintf("fmt.Println(%s)", lastCode)
+	}
+
+	var writeCode string
+	if c.DisableRunAll {
+		writeCode = lastCode
+	} else {
+		writeCode = strings.Join(c.codeLines[0:len(c.codeLines)-1], ";") + ";" + lastCode
+	}
+	// _ = []string{"a", "b", "c", "d"}[1:2]
+	wholeCode := fmt.Sprintf(simpleMainFormat, writeCode)
+	tools.FileWriteWithInterface(c.tmpPath, wholeCode)
 	return nil
 }
 
@@ -73,5 +83,6 @@ func (c *Coder) formatCode() error {
 }
 
 func RunSimpleCode(code string) error {
-	return NewCoder().AddCode(code).Run()
+	coder := &Coder{DisableRunAll: true}
+	return coder.AddCode(code).Run()
 }

@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/wxnacy/gotool"
+	"github.com/wxnacy/go-tools"
 )
 
 var (
@@ -23,7 +23,7 @@ func initTempDir() {
 		// tempdir = filepath.Join(tmp, fmt.Sprintf("wgo-%d", os.Getpid()))
 		tempdir = filepath.Join(tmp, "wgo-")
 	}
-	gotool.DirExistsOrCreate(tempdir)
+	tools.DirExistsOrCreate(tempdir)
 	if tempMainFile == "" {
 		tempMainFile = filepath.Join(tempdir, "main.go")
 	}
