@@ -23,18 +23,23 @@ type GlobalArg struct {
 }
 
 type RootCommand struct {
-	ShowVersion bool // 展示版本信息
-	Cmd         string
+	ShowVersion bool   // 展示版本信息
+	Cmd         string // 需要再命令行中运行的代码片段
+
+	coder *wgo.Coder
 }
 
 func (r RootCommand) Run() error {
+	// 运行字符串的代码
 	if r.Cmd != "" {
 		return wgo.RunSimpleCode(r.Cmd)
 	}
+	// 展示版本信息
 	if r.ShowVersion {
 		fmt.Println(wgo.GetVersion())
 		return nil
 	}
+	// 运行交互界面
 	return r.RunPrompt()
 }
 
@@ -46,6 +51,7 @@ func (r RootCommand) RunPrompt() error {
 		return err
 	}
 	fmt.Println(wholeVer)
+	r.coder = wgo.NewCoder()
 	// 运行交互终端
 	p := prompt.New(
 		r.Executor,
@@ -57,7 +63,16 @@ func (r RootCommand) RunPrompt() error {
 
 // 交互命令执行器
 func (r RootCommand) Executor(t string) {
-	fmt.Println(t)
+	switch t {
+	case "exit":
+		os.Exit(0)
+	default:
+		r.coder.AddCode(t)
+		err := r.coder.Run()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}
 }
 
 // 交互界面提示
