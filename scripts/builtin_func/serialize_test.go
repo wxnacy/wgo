@@ -17,7 +17,7 @@ func TestSerializeAndDeserialize(t *testing.T) {
 	original := sampleStruct{ID: 42, Name: "answer"}
 	defer func() { TempDir = "" }()
 
-	if err := Serialize(name, original); err != nil {
+	if err := _Serialize(name, original); err != nil {
 		t.Fatalf("Serialize error: %v", err)
 	}
 
@@ -50,7 +50,7 @@ func TestSerializeTypeFileWritten(t *testing.T) {
 	name := "value.gob"
 	defer func() { TempDir = "" }()
 
-	if err := Serialize(name, 123); err != nil {
+	if err := _Serialize(name, 123); err != nil {
 		t.Fatalf("Serialize error: %v", err)
 	}
 

@@ -12,17 +12,22 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
 	log "github.com/wxnacy/wgo/internal/logger"
 )
 
-const DEFAULT_CODE_TPL = `package main
+const (
+	VAR_PREFIX       = "var-"
+	DEFAULT_CODE_TPL = `package main
 
 func main() {
 	%s
 }`
+)
 
 var (
 	logger    = log.GetLogger()
@@ -44,7 +49,53 @@ func GetCoder() *Coder {
 }
 
 type Coder struct {
-	VarFiles []string
+	VarNames []string
+}
+
+// 序列化代码中的变量
+// 功能需求:
+// - code 会是一个含有 main 函数的完整 go 文件内容
+// - 将 main 函数中出现的函数中出现的变量名都包装一个函数名 _Serialize() 放到 main 函数结尾
+//   - 举例 `var a = 1` => `_Serialize("var-a", a)`
+//   - 举例 `b := 1` => `_Serialize("var-b", b)`
+//
+// - 如果某个参数没有赋值，或者为 nil 则不要做这个操作
+// - 如果代码中已经有 _Serialize 包装的代码，则迁移到 main 函数结尾
+// - 将 _Serialize 包装过的参数名列表保存到 VarNames 中
+// - VarNames 顺序要严格按照 main 中出现的顺序，不可以做其他排序
+// - 增加测试用例
+func (c *Coder) SerializeCodeVars(code string) string {
+	if c == nil {
+		c = GetCoder()
+	}
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "", code, parser.ParseComments)
+	if err != nil {
+		return code
+	}
+
+	mainFunc := findMainFunc(file)
+	if mainFunc == nil || mainFunc.Body == nil {
+		return code
+	}
+
+	originalSerialize, serializedNames := extractSerializeCalls(mainFunc.Body)
+	mainFunc.Body.List = removeSerializeStmts(mainFunc.Body.List)
+
+	orderedVars := collectSerializableVars(mainFunc.Body)
+	newSerialize := makeSerializeCalls(orderedVars, serializedNames)
+
+	mainFunc.Body.List = append(mainFunc.Body.List, append(originalSerialize, newSerialize...)...)
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, file); err != nil {
+		return code
+	}
+
+	c.VarNames = gatherVarNames(orderedVars, serializedNames, originalSerialize)
+
+	return buf.String()
 }
 
 // 插入代码并运行
@@ -120,6 +171,7 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 
 	// 处理代码
 	processedCode, err := c.ProcessCode(code)
+	processedCode = c.SerializeCodeVars(processedCode)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
 		return code
@@ -359,6 +411,197 @@ func processVariableDeclarations(input string, existingVars map[string]bool) str
 	}
 
 	return strings.Join(result, "\n")
+}
+
+type varEntry struct {
+	name string
+	pos  token.Pos
+}
+
+func findMainFunc(file *ast.File) *ast.FuncDecl {
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "main" {
+			return fn
+		}
+	}
+	return nil
+}
+
+func extractSerializeCalls(body *ast.BlockStmt) ([]ast.Stmt, map[string]struct{}) {
+	var calls []ast.Stmt
+	names := make(map[string]struct{})
+	for _, stmt := range body.List {
+		exprStmt := collectSerializeCall(stmt)
+		if exprStmt == nil {
+			continue
+		}
+		call, _ := exprStmt.X.(*ast.CallExpr)
+		if call == nil || len(call.Args) < 2 || isNilExpr(call.Args[1]) {
+			continue
+		}
+		if name := serializeCallVarName(call); name != "" {
+			names[name] = struct{}{}
+		}
+		calls = append(calls, exprStmt)
+	}
+	return calls, names
+}
+
+func collectSerializeCall(stmt ast.Stmt) *ast.ExprStmt {
+	exprStmt, ok := stmt.(*ast.ExprStmt)
+	if !ok {
+		return nil
+	}
+	call, ok := exprStmt.X.(*ast.CallExpr)
+	if !ok {
+		return nil
+	}
+	if fun, ok := call.Fun.(*ast.Ident); !ok || fun.Name != "_Serialize" {
+		return nil
+	}
+	return exprStmt
+}
+
+func removeSerializeStmts(stmts []ast.Stmt) []ast.Stmt {
+	var filtered []ast.Stmt
+	for _, stmt := range stmts {
+		if collectSerializeCall(stmt) != nil {
+			continue
+		}
+		filtered = append(filtered, stmt)
+	}
+	return filtered
+}
+
+func collectSerializableVars(body *ast.BlockStmt) []varEntry {
+	seen := make(map[string]struct{})
+	var entries []varEntry
+	ast.Inspect(body, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.AssignStmt:
+			if node.Tok != token.DEFINE && node.Tok != token.ASSIGN {
+				return true
+			}
+			for i, lhs := range node.Lhs {
+				ident, ok := lhs.(*ast.Ident)
+				if !ok || ident.Name == "_" {
+					continue
+				}
+				if _, exists := seen[ident.Name]; exists {
+					continue
+				}
+				if i >= len(node.Rhs) {
+					continue
+				}
+				if isNilExpr(node.Rhs[i]) {
+					continue
+				}
+				seen[ident.Name] = struct{}{}
+				entries = append(entries, varEntry{name: ident.Name, pos: ident.NamePos})
+			}
+		case *ast.ValueSpec:
+			valueCount := len(node.Values)
+			for i, name := range node.Names {
+				if name.Name == "_" {
+					continue
+				}
+				if _, exists := seen[name.Name]; exists {
+					continue
+				}
+				if i >= valueCount {
+					continue
+				}
+				if isNilExpr(node.Values[i]) {
+					continue
+				}
+				seen[name.Name] = struct{}{}
+				entries = append(entries, varEntry{name: name.Name, pos: name.NamePos})
+			}
+		}
+		return true
+	})
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].pos < entries[j].pos
+	})
+
+	return entries
+}
+
+func makeSerializeCalls(entries []varEntry, existing map[string]struct{}) []ast.Stmt {
+	var stmts []ast.Stmt
+	for _, entry := range entries {
+		if _, ok := existing[entry.name]; ok {
+			continue
+		}
+		lit := &ast.BasicLit{Kind: token.STRING, Value: fmt.Sprintf("%q", VAR_PREFIX+entry.name)}
+		call := &ast.ExprStmt{
+			X: &ast.CallExpr{
+				Fun:  ast.NewIdent("_Serialize"),
+				Args: []ast.Expr{lit, ast.NewIdent(entry.name)},
+			},
+		}
+		stmts = append(stmts, call)
+		existing[entry.name] = struct{}{}
+	}
+	return stmts
+}
+
+func gatherVarNames(entries []varEntry, existing map[string]struct{}, original []ast.Stmt) []string {
+	var names []string
+	seen := make(map[string]struct{})
+	for _, entry := range entries {
+		if _, ok := existing[entry.name]; !ok {
+			continue
+		}
+		if _, added := seen[entry.name]; added {
+			continue
+		}
+		names = append(names, entry.name)
+		seen[entry.name] = struct{}{}
+	}
+	for _, stmt := range original {
+		exprStmt := collectSerializeCall(stmt)
+		if exprStmt == nil {
+			continue
+		}
+		call, _ := exprStmt.X.(*ast.CallExpr)
+		if call == nil {
+			continue
+		}
+		name := serializeCallVarName(call)
+		if name == "" {
+			continue
+		}
+		if _, added := seen[name]; added {
+			continue
+		}
+		names = append(names, name)
+		seen[name] = struct{}{}
+	}
+	return names
+}
+
+func isNilExpr(expr ast.Expr) bool {
+	ident, ok := expr.(*ast.Ident)
+	return ok && ident.Name == "nil"
+}
+
+func serializeCallVarName(call *ast.CallExpr) string {
+	if len(call.Args) < 2 {
+		return ""
+	}
+	if ident, ok := call.Args[1].(*ast.Ident); ok {
+		return ident.Name
+	}
+	if lit, ok := call.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+		if unquoted, err := strconv.Unquote(lit.Value); err == nil {
+			if strings.HasPrefix(unquoted, VAR_PREFIX) {
+				return unquoted[len(VAR_PREFIX):]
+			}
+		}
+	}
+	return ""
 }
 
 func Command(name string, args ...string) (string, error) {

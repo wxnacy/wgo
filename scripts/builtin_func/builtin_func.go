@@ -36,7 +36,7 @@ var typeRegistry = map[string]reflect.Type{
 // 所以能不能在 Serialize 方法中调用 SerializeToFile 后，将数据的类型 T 也存到 typePath 中
 // 然后 Deserialize 方法通过 typePath 获取到 T 后，再调用 DeserializeFromFile 方法返回对象内容
 // 实现完成后增加测试用例
-func Serialize[T any](name string, value T) error {
+func _Serialize[T any](name string, value T) error {
 	dir := GetSerializeDir()
 	filePath := filepath.Join(dir, name)
 	typePath := filepath.Join(dir, name+".type")
