@@ -1,4 +1,36 @@
-package main
+package handler
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// 功能需求
+// 将 BuiltinFuncCode 内容写入到 filename 中
+func InitBuiltinFuncCode(filename string) error {
+	if filename == "" {
+		return errors.New("filename 不能为空")
+	}
+
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return fmt.Errorf("解析路径失败: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		return fmt.Errorf("创建目录失败: %w", err)
+	}
+
+	if err := os.WriteFile(absPath, []byte(BuiltinFuncCode), 0o644); err != nil {
+		return fmt.Errorf("写入文件失败: %w", err)
+	}
+
+	return nil
+}
+
+var BuiltinFuncCode = `package main
 
 import (
 	"encoding/gob"
@@ -171,3 +203,4 @@ func decodeToValue(filePath string, target any) error {
 
 	return nil
 }
+`

@@ -76,7 +76,7 @@ func Run() error {
 	fmt.Println("gopls已就绪，您可以开始输入了！")
 
 	p := prompt.NewPrompt(
-		prompt.WithOutFunc(insertCodeAndRun),
+		prompt.WithOutFunc(handler.GetCoder().InsertCodeAndRun),
 		prompt.WithCompletionFunc(func(input string, cursor int) []prompt.CompletionItem {
 			return completionFunc(input, cursor, client, ctx)
 		}),

@@ -13,12 +13,6 @@ import (
 	"strings"
 )
 
-type sample struct {
-	Name string
-	Age  int
-	Tags []string
-}
-
 const (
 	builtinFuncFilePath = "./scripts/builtin_func/builtin_func.go"
 	toBuiltinFuncFile   = "./internal/handler/builtin_func.go"
