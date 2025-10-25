@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -18,10 +19,12 @@ import (
 	"sync"
 
 	log "github.com/wxnacy/wgo/internal/logger"
+	"github.com/wxnacy/wgo/pkg/utils"
 )
 
 const (
 	VAR_PREFIX       = "var-"
+	INPUT_SUFFIX     = "// :INPUT"
 	DEFAULT_CODE_TPL = `package main
 
 func main() {
@@ -52,6 +55,92 @@ type Coder struct {
 	VarNames []string
 }
 
+func (c *Coder) Input(input string) (string, error) {
+	code := c.InsertOrJoinCode(input)
+	// 处理代码
+	processedCode, err := c.ProcessCode(code)
+	processedCode = c.SerializeCodeVars(processedCode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
+		return "", err
+	}
+	return "", nil
+}
+
+// 写入代码并运行
+// 功能需求:
+// - 写入到指定地址 codePath
+// - 对 codePath 进行 goimports 操作
+// - go run codePath 时，需要带上同目录下其他的 go 文件
+//
+// 增加测试用例
+func (c *Coder) WriteAndRunCode(code, codePath string) (string, error) {
+	// 写入文件
+	err := WriteCode(code, codePath)
+	if err != nil {
+		logger.Errorf("写入临时文件失败: %v\n", err)
+		panic(err)
+	}
+
+	// 运行 goimports
+	if _, err := Command("goimports", "-w", codePath); err != nil {
+		logger.Errorf("goimports failed: %v", err)
+		return "", err
+	}
+
+	// 收集同目录下的其他 Go 文件
+	dir := filepath.Dir(codePath)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		logger.Errorf("读取目录失败: %v", err)
+		return "", err
+	}
+
+	var goFiles []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.HasSuffix(entry.Name(), ".go") {
+			continue
+		}
+		fullPath := filepath.Join(dir, entry.Name())
+		if fullPath == codePath {
+			continue
+		}
+		goFiles = append(goFiles, fullPath)
+	}
+
+	sort.Strings(goFiles)
+	args := append([]string{"run", codePath}, goFiles...)
+
+	// 运行代码
+	return Command("go", args...)
+}
+
+// 插入或者拼接代码
+// 功能需求：
+// - input 是需要插入的代码片段
+// - 如果 VarNames 有数据使用，参数列表使用 _Deserialize 拼接代码,新输入的代码放在最后
+// - 最后将拼接好的代码拼接到魔板 DEFAULT_CODE_TPL 中
+func (c *Coder) InsertOrJoinCode(input string) string {
+	codes := make([]string, 0)
+	for _, v := range c.VarNames {
+		name := VAR_PREFIX + v
+		typePath := filepath.Join(GetTempDir(), name+".type")
+		data, err := os.ReadFile(typePath)
+		if err != nil {
+			continue
+		}
+		typeName := string(data)
+		line := fmt.Sprintf("%s, _ := _Deserialize[%s](\"%s\")", v, typeName, name)
+		codes = append(codes, line)
+	}
+	codes = append(codes, input+INPUT_SUFFIX)
+	code := strings.Join(codes, "\n")
+	return fmt.Sprintf(DEFAULT_CODE_TPL, code)
+}
+
 // 序列化代码中的变量
 // 功能需求:
 // - code 会是一个含有 main 函数的完整 go 文件内容
@@ -65,10 +154,6 @@ type Coder struct {
 // - VarNames 顺序要严格按照 main 中出现的顺序，不可以做其他排序
 // - 增加测试用例
 func (c *Coder) SerializeCodeVars(code string) string {
-	if c == nil {
-		c = GetCoder()
-	}
-
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", code, parser.ParseComments)
 	if err != nil {
@@ -628,4 +713,20 @@ func Command(name string, args ...string) (string, error) {
 	}
 
 	return outStr, nil
+}
+
+func SerializeVar[T any](name string, value T) error {
+	dir := GetTempDir()
+	filePath := filepath.Join(dir, name)
+	typePath := filepath.Join(dir, name+".type")
+
+	if err := utils.SerializeToFile(filePath, value); err != nil {
+		return err
+	}
+
+	t := reflect.TypeOf(value)
+	if t == nil {
+		return errors.New("无法获取对象类型")
+	}
+	return WriteCode(t.String(), typePath)
 }

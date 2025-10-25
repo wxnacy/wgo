@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -16,7 +18,7 @@ func main() {
 	b := 2
 }`
 
-	c := &Coder{}
+	c := GetCoder()
 	got := c.SerializeCodeVars(input)
 
 	callNames := serializeCallNamesFromCode(t, got)
@@ -40,7 +42,7 @@ func main() {
 	_ = b
 }`
 
-	c := &Coder{}
+	c := GetCoder()
 	got := c.SerializeCodeVars(input)
 	callNames := serializeCallNamesFromCode(t, got)
 	expect := []string{"a"}
@@ -61,7 +63,7 @@ func main() {
 	b := 2
 }`
 
-	c := &Coder{}
+	c := GetCoder()
 	got := c.SerializeCodeVars(input)
 	callNames := serializeCallNamesFromCode(t, got)
 	expect := []string{"a", "b"}
@@ -81,6 +83,39 @@ func main() {
 	}
 	if seen != 1 {
 		t.Fatalf("expected single serialization for 'a', got %d", seen)
+	}
+}
+
+func TestWriteAndRunCodeIncludesSiblingFiles(t *testing.T) {
+	c := GetCoder()
+
+	dir := t.TempDir()
+	helperPath := filepath.Join(dir, "helper.go")
+	helperCode := `package main
+
+func greet() string {
+    return "hello"
+}
+`
+	if err := os.WriteFile(helperPath, []byte(helperCode), 0o644); err != nil {
+		t.Fatalf("写入辅助文件失败: %v", err)
+	}
+
+	codePath := filepath.Join(dir, "main.go")
+	mainCode := `package main
+
+func main() {
+    fmt.Println(greet())
+}
+`
+
+	out, err := c.WriteAndRunCode(mainCode, codePath)
+	if err != nil {
+		t.Fatalf("WriteAndRunCode 执行失败: %v", err)
+	}
+
+	if out != "hello" {
+		t.Fatalf("期望输出 hello, 实际为 %q", out)
 	}
 }
 
