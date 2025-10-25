@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -116,6 +117,140 @@ func main() {
 
 	if out != "hello" {
 		t.Fatalf("期望输出 hello, 实际为 %q", out)
+	}
+}
+
+func TestJoinPrintCodeWrapsFunctionCall(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func main() {
+	time.Now()// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if strings.Contains(got, INPUT_SUFFIX) {
+		t.Fatalf("JoinPrintCode 未移除输入标记: %s", got)
+	}
+
+	if !strings.Contains(got, "fmt.Println(time.Now())") {
+		t.Fatalf("期望输出包含 fmt.Println 包装: %s", got)
+	}
+}
+
+func TestJoinPrintCodeWrapsIdentifier(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func main() {
+	var t int
+	t// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if !strings.Contains(got, "fmt.Println(t)") {
+		t.Fatalf("期望标识符被打印: %s", got)
+	}
+}
+
+func TestJoinPrintCodeKeepsOnlyLastPrint(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func main() {
+	fmt.Println("a")
+	fmt.Println("b")// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if strings.Contains(got, "fmt.Println(\"a\")") {
+		t.Fatalf("应当移除非最后的 fmt.Println: %s", got)
+	}
+	if !strings.Contains(got, "fmt.Println(\"b\")") {
+		t.Fatalf("缺少最后的 fmt.Println: %s", got)
+	}
+}
+
+func TestJoinPrintCodeKeepsAssignments(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func main() {
+	a := 1// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if !strings.Contains(got, "a := 1") {
+		t.Fatalf("赋值语句应当保留: %s", got)
+	}
+	if strings.Contains(got, "fmt.Println(a := 1)") {
+		t.Fatalf("赋值语句不应被包装: %s", got)
+	}
+}
+
+func TestJoinPrintCodeSplitsSemicolonExpression(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+import "time"
+
+func main() {
+	a := time.Now(); a// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if !strings.Contains(got, "a := time.Now()") {
+		t.Fatalf("应保留赋值语句: %s", got)
+	}
+	if !strings.Contains(got, "fmt.Println(a)") {
+		t.Fatalf("应打印最后的表达式: %s", got)
+	}
+}
+
+func TestJoinPrintCodeSplitsFuncLiteral(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func main() {
+	test := func() string { return "wxnacy" }; test// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+
+	if !strings.Contains(got, "test := func() string { return \"wxnacy\" }") {
+		t.Fatalf("应保留函数定义: %s", got)
+	}
+	if !strings.Contains(got, "fmt.Println(test)") {
+		t.Fatalf("应打印函数变量: %s", got)
 	}
 }
 

@@ -92,6 +92,12 @@ func _Serialize[T any](name string, value T) error {
 	return nil
 }
 
+func _Deserialize[T any](name string) (T, error) {
+	dir := GetSerializeDir()
+	filePath := filepath.Join(dir, name)
+	return DeserializeFromFile[T](filePath)
+}
+
 func Deserialize(name string) (any, error) {
 	dir := GetSerializeDir()
 	filePath := filepath.Join(dir, name)

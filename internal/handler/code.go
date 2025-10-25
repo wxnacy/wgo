@@ -55,23 +55,28 @@ type Coder struct {
 	VarNames []string
 }
 
-func (c *Coder) Input(input string) (string, error) {
+// 输入并运行代码
+// 功能需求:
+// - 调用 InsertOrJoinCode 插入并拼接代码
+// - 调用 ProcessCode 处理代码
+// - 调用 SerializeCodeVars 收集并序列化参数列表
+// - 调用 WriteAndRunCode 写入并运行代码
+func (c *Coder) InputAndRun(input string) (string, error) {
 	code := c.InsertOrJoinCode(input)
 	// 处理代码
-	processedCode, err := c.ProcessCode(code)
-	processedCode = c.SerializeCodeVars(processedCode)
+	code, err := c.JoinPrintCode(code)
+	code = c.SerializeCodeVars(code)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
 		return "", err
 	}
-	return "", nil
+	return c.WriteAndRunCode(code, GetMainFile())
 }
 
 // 写入代码并运行
 // 功能需求:
 // - 写入到指定地址 codePath
-// - 对 codePath 进行 goimports 操作
-// - go run codePath 时，需要带上同目录下其他的 go 文件
+// - 调用 RunCode 运行代码
 //
 // 增加测试用例
 func (c *Coder) WriteAndRunCode(code, codePath string) (string, error) {
@@ -81,7 +86,14 @@ func (c *Coder) WriteAndRunCode(code, codePath string) (string, error) {
 		logger.Errorf("写入临时文件失败: %v\n", err)
 		panic(err)
 	}
+	return c.RunCode(codePath)
+}
 
+// 运行 main 文件
+// 功能需求:
+// - 对 codePath 进行 goimports 操作
+// - go run codePath 时，需要带上同目录下其他的 go 文件
+func (c *Coder) RunCode(codePath string) (string, error) {
 	// 运行 goimports
 	if _, err := Command("goimports", "-w", codePath); err != nil {
 		logger.Errorf("goimports failed: %v", err)
@@ -128,11 +140,10 @@ func (c *Coder) InsertOrJoinCode(input string) string {
 	for _, v := range c.VarNames {
 		name := VAR_PREFIX + v
 		typePath := filepath.Join(GetTempDir(), name+".type")
-		data, err := os.ReadFile(typePath)
+		typeName, err := ReadCode(typePath)
 		if err != nil {
 			continue
 		}
-		typeName := string(data)
 		line := fmt.Sprintf("%s, _ := _Deserialize[%s](\"%s\")", v, typeName, name)
 		codes = append(codes, line)
 	}
@@ -291,19 +302,89 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 	return out + "\n"
 }
 
+// 格式化代码
+// - code 是个包含 main 函数的 go 代码
+// - 对 code 完成一下一些列操作后返回
+//
+// 功能需求:
+// - 对未使用的表达式或参数使用 fmt.Println 进行包装
+//   - 比如 time.Now() => fmt.Println(time.Now())
+//   - 比如 t => fmt.Println(t) ，其中 t 是参数
+//   - 比如 a := time.Now(); a => a := time.Now() 换行 fmt.Println(a)
+//   - 比如 test := func ()  { return "wxnacy" }; test 方法格式化以后 换行 fmt.Println(test)
+//
+// - 最后只保留最后一个 fmt.Print 开头的代码
+//
+// 增加测试用例
+func (c *Coder) JoinPrintCode(code string) (string, error) {
+	lines := strings.Split(code, "\n")
+	for i, line := range lines {
+		idx := strings.Index(line, INPUT_SUFFIX)
+		if idx == -1 {
+			continue
+		}
+
+		content := line[:idx]
+		indent := content[:len(content)-len(strings.TrimLeft(content, "\t "))]
+		segments := strings.Split(content, ";")
+
+		var tokens []string
+		for _, segment := range segments {
+			trimmed := strings.TrimSpace(segment)
+			if trimmed == "" {
+				continue
+			}
+			tokens = append(tokens, trimmed)
+		}
+
+		if len(tokens) == 0 {
+			lines[i] = indent
+			continue
+		}
+
+		var newLines []string
+		if len(tokens) > 1 {
+			for _, stmt := range tokens[:len(tokens)-1] {
+				newLines = append(newLines, indent+stmt)
+			}
+		}
+
+		last := tokens[len(tokens)-1]
+		plain := strings.TrimSpace(last)
+		replacement := indent + plain
+		if plain == "" {
+			replacement = indent
+		} else if !strings.HasPrefix(plain, "fmt.Print") &&
+			!strings.Contains(plain, ":=") && !strings.Contains(plain, "=") &&
+			!strings.HasPrefix(plain, "if ") && !strings.HasPrefix(plain, "for ") &&
+			!strings.HasPrefix(plain, "switch ") && !strings.HasPrefix(plain, "select ") {
+			replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
+		}
+		newLines = append(newLines, replacement)
+
+		lines[i] = strings.Join(newLines, "\n")
+	}
+
+	joined := strings.Join(lines, "\n")
+
+	wrapped, err := wrapUnusedExpressions(joined)
+	if err != nil {
+		return code, err
+	}
+
+	processed := processFmtPrintStatements(wrapped)
+	return processed, nil
+}
+
 // ProcessCode 处理代码，满足以下功能：
 // - 包装未使用的表达式（如 time.Now()）为 fmt.Println 语句
 // - 只保留最后一个 fmt.Print 相关的语句
 // - 处理未使用的变量，添加 _ = var 到 main 函数末尾
 func (c *Coder) ProcessCode(code string) (string, error) {
-	// 首先处理未使用的表达式，如 time.Now()
-	processedCode, err := wrapUnusedExpressions(code)
+	processedCode, err := c.JoinPrintCode(code)
 	if err != nil {
 		return code, err
 	}
-
-	// 在处理未使用变量之前，先处理 fmt.Print 语句，只保留最后一个
-	processedCode = processFmtPrintStatements(processedCode)
 
 	// 创建临时目录和文件来编译检查未使用变量
 	tmpDir, err := os.MkdirTemp("", "go-process-")
@@ -729,4 +810,12 @@ func SerializeVar[T any](name string, value T) error {
 		return errors.New("无法获取对象类型")
 	}
 	return WriteCode(t.String(), typePath)
+}
+
+func ReadCode(p string) (string, error) {
+	data, err := os.ReadFile(p)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
