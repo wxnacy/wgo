@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -112,6 +113,80 @@ func main() {
 	expectedCode := `func() string { return "wxnacy" }`
 	if code != expectedCode {
 		t.Fatalf("函数代码序列化异常: 期望 %q, 实际 %q", expectedCode, code)
+	}
+}
+
+func TestAfterRunCodeRemovesInvalidEntries(t *testing.T) {
+	code := `package main
+
+func main() {
+	fmt.Println(test)
+}
+`
+
+	c := &Coder{
+		VarNames:    []string{"test", "keep"},
+		FuncCodeMap: map[string]string{"test": "func() string { return \"wxnacy\" }", "keep": "func() {}"},
+	}
+
+	runErr := errors.New(`# command-line-arguments
+/tmp/main.go:4:14: undefined: test`)
+	runOut := "output"
+	out, err := c.AfterRunCode(code, runOut, runErr)
+	if out != runOut {
+		t.Fatalf("输出应保持不变, 期望 %q, 实际 %q", runOut, out)
+	}
+	if err == nil {
+		t.Fatalf("错误应原样返回, 不应为 nil")
+	}
+	expectErr := "fmt.Println(test): undefined: test"
+	if err.Error() != expectErr {
+		t.Fatalf("错误信息应格式化, 期望 %q, 实际 %q", expectErr, err.Error())
+	}
+
+	expectVars := []string{"keep"}
+	if !reflect.DeepEqual(c.VarNames, expectVars) {
+		t.Fatalf("VarNames 应更新为 %v, 实际 %v", expectVars, c.VarNames)
+	}
+	if _, exists := c.FuncCodeMap["test"]; exists {
+		t.Fatalf("FuncCodeMap 中 test 应被移除, 当前: %+v", c.FuncCodeMap)
+	}
+	if _, exists := c.FuncCodeMap["keep"]; !exists {
+		t.Fatalf("FuncCodeMap 应保留无关的键, 当前: %+v", c.FuncCodeMap)
+	}
+}
+
+func TestAfterRunCodeIgnoresConfiguredErrors(t *testing.T) {
+	code := `package main
+
+func main() {
+	a := 1
+	a := 2
+}
+`
+
+	c := &Coder{
+		VarNames: []string{"a"},
+	}
+
+	runErr := errors.New(`# command-line-arguments
+/tmp/main.go:5:5: no new variables on left side of :=`)
+	out, err := c.AfterRunCode(code, "out", runErr)
+	if out != "out" {
+		t.Fatalf("输出应保持不变, 期望 %q, 实际 %q", "out", out)
+	}
+	if err == nil {
+		t.Fatalf("忽略错误仍应返回错误信息")
+	}
+	expectErr := "a := 2: no new variables on left side of :="
+	if err.Error() != expectErr {
+		t.Fatalf("忽略错误应格式化, 期望 %q, 实际 %q", expectErr, err.Error())
+	}
+	if !reflect.DeepEqual(c.VarNames, []string{"a"}) {
+		t.Fatalf("忽略错误不应清理 VarNames, 当前 %v", c.VarNames)
+	}
+	if c.FuncCodeMap != nil && len(c.FuncCodeMap) != 0 {
+		t.Fatalf("忽略错误不应修改 FuncCodeMap, 当前 %+v", c.FuncCodeMap)
 	}
 }
 

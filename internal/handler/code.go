@@ -33,10 +33,16 @@ func main() {
 )
 
 var (
-	logger    = log.GetLogger()
-	onceCoder sync.Once
-	coder     *Coder
+	logger               = log.GetLogger()
+	onceCoder            sync.Once
+	coder                *Coder
+	errLineNumberPattern = regexp.MustCompile(`:(\d+)(?::\d+)?:`)
+	errLineInfoPattern   = regexp.MustCompile(`^.*?:(\d+)(?::\d+)?:\s*`)
 )
+
+var ignoredRunErrorSubstrings = []string{
+	"no new variables on left side of :=",
+}
 
 func WriteCode(code string, filePath string) error {
 	return os.WriteFile(filePath, []byte(code), 0o644)
@@ -62,6 +68,7 @@ type Coder struct {
 // - 调用 JoinPrintCode 拼接打印代码
 // - 调用 SerializeCodeVars 收集并序列化参数列表
 // - 调用 WriteAndRunCode 写入并运行代码
+// - 调用 AfterRunCode 处理运行代码后的操作
 func (c *Coder) InputAndRun(input string) (string, error) {
 	code := c.InsertOrJoinCode(input)
 	// 处理代码
@@ -71,7 +78,83 @@ func (c *Coder) InputAndRun(input string) (string, error) {
 		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
 		return "", err
 	}
-	return c.WriteAndRunCode(code, GetMainFile())
+	out, err := c.WriteAndRunCode(code, GetMainFile())
+	out, err = c.AfterRunCode(code, out, err)
+	return out, err
+}
+
+// 运行代码后的操作
+// 处理 WriteAndRunCode 命令后的操作
+//   - code: 包含 main 函数的完成 go 文件内容
+//   - runOut: 运行后的结果输出
+//   - runErr: 运行后的错误输出
+//
+// 忽略错误如下
+//   - no new variables on left side of :=
+//
+// 功能需求:
+//
+// - runErr 不为空，且不在忽略错误中，判断报错所在行，在 code 中是否包含变量，如果变量在 VerNames 中，需要删除这个条目，如果在 FuncCodeMap 中也要删除
+// - runErr 不为空，作如下处理再进行返回
+//   - 去掉第一行 # command-line-arguments
+//   - 将每行错误的文件名和行号列号信息替换为 code 中对应行的代码
+//
+// 增加测试用例
+func (c *Coder) AfterRunCode(code, runOut string, runErr error) (string, error) {
+	if runErr == nil {
+		return runOut, nil
+	}
+
+	errText := runErr.Error()
+	ignored := isIgnoredRunError(errText)
+
+	if !ignored {
+		lineNumbers := extractErrorLineNumbers(errText)
+		if len(lineNumbers) > 0 {
+			lines := strings.Split(code, "\n")
+			removeSet := make(map[string]struct{})
+
+			for _, ln := range lineNumbers {
+				idx := ln - 1
+				if idx < 0 || idx >= len(lines) {
+					continue
+				}
+				line := lines[idx]
+				for _, name := range c.VarNames {
+					if strings.Contains(line, name) {
+						removeSet[name] = struct{}{}
+					}
+				}
+				for name := range c.FuncCodeMap {
+					if strings.Contains(line, name) {
+						removeSet[name] = struct{}{}
+					}
+				}
+			}
+
+			if len(removeSet) > 0 {
+				filtered := make([]string, 0, len(c.VarNames))
+				for _, name := range c.VarNames {
+					if _, ok := removeSet[name]; ok {
+						continue
+					}
+					filtered = append(filtered, name)
+				}
+				c.VarNames = filtered
+
+				for name := range removeSet {
+					delete(c.FuncCodeMap, name)
+				}
+			}
+		}
+	}
+
+	formatted := formatRunErrorMessage(code, errText)
+	if formatted != errText {
+		runErr = errors.New(formatted)
+	}
+
+	return runOut, runErr
 }
 
 // 写入代码并运行
@@ -805,6 +888,85 @@ func (c *Coder) captureFuncLiterals(fset *token.FileSet, entries []varEntry, val
 		}
 		delete(c.FuncCodeMap, name)
 	}
+}
+
+func extractErrorLineNumbers(errText string) []int {
+	matches := errLineNumberPattern.FindAllStringSubmatch(errText, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[int]struct{})
+	var lines []int
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		num, err := strconv.Atoi(match[1])
+		if err != nil {
+			continue
+		}
+		if _, ok := seen[num]; ok {
+			continue
+		}
+		seen[num] = struct{}{}
+		lines = append(lines, num)
+	}
+	return lines
+}
+
+func isIgnoredRunError(errText string) bool {
+	for _, substr := range ignoredRunErrorSubstrings {
+		if strings.Contains(errText, substr) {
+			return true
+		}
+	}
+	return false
+}
+
+func formatRunErrorMessage(code, errText string) string {
+	if errText == "" {
+		return errText
+	}
+	lines := strings.Split(errText, "\n")
+	if len(lines) == 0 {
+		return errText
+	}
+	if strings.TrimSpace(lines[0]) == "# command-line-arguments" {
+		lines = lines[1:]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	codeLines := strings.Split(code, "\n")
+	for i, line := range lines {
+		lines[i] = replaceErrorLineWithCode(line, codeLines)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func replaceErrorLineWithCode(line string, codeLines []string) string {
+	indices := errLineInfoPattern.FindStringSubmatchIndex(line)
+	if indices == nil || len(indices) < 4 {
+		return line
+	}
+	lineNumberStart, lineNumberEnd := indices[2], indices[3]
+	lineNumber, err := strconv.Atoi(line[lineNumberStart:lineNumberEnd])
+	if err != nil {
+		return line
+	}
+	var codeLine string
+	idx := lineNumber - 1
+	if idx >= 0 && idx < len(codeLines) {
+		codeLine = strings.TrimSpace(codeLines[idx])
+	}
+	if codeLine == "" {
+		codeLine = fmt.Sprintf("line %d", lineNumber)
+	}
+	message := strings.TrimSpace(line[indices[1]:])
+	if message == "" {
+		return codeLine
+	}
+	return fmt.Sprintf("%s: %s", codeLine, message)
 }
 
 func isNilExpr(expr ast.Expr) bool {
