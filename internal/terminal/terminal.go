@@ -150,10 +150,8 @@ func prepareLSP(ctx context.Context, workspace, codePath string) (*lsp.LSPClient
 func outFunc(input string) string {
 	out, err := handler.GetCoder().InputAndRun(input)
 	if err != nil {
-		logger.Errorf("RunCode Err:\n%v", err)
 		return fmt.Sprintf("\033[31m%v\033[0m\n", err)
 	} else {
-		logger.Infof("RunCode Out: %s", out)
 		return out
 	}
 }
@@ -205,7 +203,7 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 		return nil
 	}
 
-	if strings.ContainsRune(" \t\n)}]", prevChar) {
+	if strings.ContainsRune(" \t\n)}]\"", prevChar) {
 		return nil
 	}
 

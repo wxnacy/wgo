@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -117,22 +118,37 @@ func main() {
 }
 
 func TestAfterRunCodeRemovesInvalidEntries(t *testing.T) {
-	code := `package main
+	originalCode := `package main
 
 func main() {
 	fmt.Println(test)
 }
 `
 
+	formattedFile := `package main
+
+import "fmt"
+
+func main() {
+	fmt.Println(test)
+}
+`
+
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(filePath, []byte(formattedFile), 0o644); err != nil {
+		t.Fatalf("写入临时文件失败: %v", err)
+	}
+
 	c := &Coder{
 		VarNames:    []string{"test", "keep"},
 		FuncCodeMap: map[string]string{"test": "func() string { return \"wxnacy\" }", "keep": "func() {}"},
 	}
 
-	runErr := errors.New(`# command-line-arguments
-/tmp/main.go:4:14: undefined: test`)
+	runErr := errors.New(fmt.Sprintf(`# command-line-arguments
+%s:6:14: undefined: test`, filePath))
 	runOut := "output"
-	out, err := c.AfterRunCode(code, runOut, runErr)
+	out, err := c.AfterRunCode(originalCode, runOut, runErr)
 	if out != runOut {
 		t.Fatalf("输出应保持不变, 期望 %q, 实际 %q", runOut, out)
 	}
@@ -157,7 +173,7 @@ func main() {
 }
 
 func TestAfterRunCodeIgnoresConfiguredErrors(t *testing.T) {
-	code := `package main
+	originalCode := `package main
 
 func main() {
 	a := 1
@@ -165,13 +181,27 @@ func main() {
 }
 `
 
+	formattedFile := `package main
+
+func main() {
+	a := 1
+	a := 2
+}
+`
+
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(filePath, []byte(formattedFile), 0o644); err != nil {
+		t.Fatalf("写入临时文件失败: %v", err)
+	}
+
 	c := &Coder{
 		VarNames: []string{"a"},
 	}
 
-	runErr := errors.New(`# command-line-arguments
-/tmp/main.go:5:5: no new variables on left side of :=`)
-	out, err := c.AfterRunCode(code, "out", runErr)
+	runErr := errors.New(fmt.Sprintf(`# command-line-arguments
+%s:5:5: no new variables on left side of :=`, filePath))
+	out, err := c.AfterRunCode(originalCode, "out", runErr)
 	if out != "out" {
 		t.Fatalf("输出应保持不变, 期望 %q, 实际 %q", "out", out)
 	}

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -37,7 +38,7 @@ var (
 	onceCoder            sync.Once
 	coder                *Coder
 	errLineNumberPattern = regexp.MustCompile(`:(\d+)(?::\d+)?:`)
-	errLineInfoPattern   = regexp.MustCompile(`^.*?:(\d+)(?::\d+)?:\s*`)
+	errLineInfoPattern   = regexp.MustCompile(`^(.+?):(\d+)(?::\d+)?:\s*(.*)$`)
 )
 
 var ignoredRunErrorSubstrings = []string{
@@ -78,7 +79,17 @@ func (c *Coder) InputAndRun(input string) (string, error) {
 		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
 		return "", err
 	}
-	out, err := c.WriteAndRunCode(code, GetMainFile())
+	codePath := GetMainFile()
+	out, err := c.WriteAndRunCode(code, codePath)
+	if err != nil {
+		logger.Errorf("RunCode Err:\n%v", err)
+	} else {
+		logger.Infof("RunCode Out: %s", out)
+	}
+	// 重新读取最终代码
+	if latest, readErr := os.ReadFile(codePath); readErr == nil {
+		code = string(latest)
+	}
 	out, err = c.AfterRunCode(code, out, err)
 	return out, err
 }
@@ -109,17 +120,14 @@ func (c *Coder) AfterRunCode(code, runOut string, runErr error) (string, error) 
 	ignored := isIgnoredRunError(errText)
 
 	if !ignored {
-		lineNumbers := extractErrorLineNumbers(errText)
-		if len(lineNumbers) > 0 {
-			lines := strings.Split(code, "\n")
+		codeLines := strings.Split(code, "\n")
+		contextLines := collectErrorContextLines(errText, codeLines)
+		if len(contextLines) > 0 {
 			removeSet := make(map[string]struct{})
-
-			for _, ln := range lineNumbers {
-				idx := ln - 1
-				if idx < 0 || idx >= len(lines) {
+			for _, line := range contextLines {
+				if line == "" {
 					continue
 				}
-				line := lines[idx]
 				for _, name := range c.VarNames {
 					if strings.Contains(line, name) {
 						removeSet[name] = struct{}{}
@@ -131,7 +139,6 @@ func (c *Coder) AfterRunCode(code, runOut string, runErr error) (string, error) 
 					}
 				}
 			}
-
 			if len(removeSet) > 0 {
 				filtered := make([]string, 0, len(c.VarNames))
 				for _, name := range c.VarNames {
@@ -914,6 +921,27 @@ func extractErrorLineNumbers(errText string) []int {
 	return lines
 }
 
+func collectErrorContextLines(errText string, codeLines []string) []string {
+	var contexts []string
+	lines := strings.Split(errText, "\n")
+	for _, line := range lines {
+		matches := errLineInfoPattern.FindStringSubmatch(line)
+		if matches == nil || len(matches) < 4 {
+			continue
+		}
+		lineNumber, err := strconv.Atoi(matches[2])
+		if err != nil {
+			continue
+		}
+		codeLine := lookupCodeLine(codeLines, lineNumber)
+		if codeLine == "" {
+			codeLine = lookupFileLine(matches[1], lineNumber)
+		}
+		contexts = append(contexts, codeLine)
+	}
+	return contexts
+}
+
 func isIgnoredRunError(errText string) bool {
 	for _, substr := range ignoredRunErrorSubstrings {
 		if strings.Contains(errText, substr) {
@@ -945,28 +973,54 @@ func formatRunErrorMessage(code, errText string) string {
 }
 
 func replaceErrorLineWithCode(line string, codeLines []string) string {
-	indices := errLineInfoPattern.FindStringSubmatchIndex(line)
-	if indices == nil || len(indices) < 4 {
+	matches := errLineInfoPattern.FindStringSubmatch(line)
+	if matches == nil || len(matches) < 4 {
 		return line
 	}
-	lineNumberStart, lineNumberEnd := indices[2], indices[3]
-	lineNumber, err := strconv.Atoi(line[lineNumberStart:lineNumberEnd])
+	lineNumber, err := strconv.Atoi(matches[2])
 	if err != nil {
 		return line
 	}
-	var codeLine string
-	idx := lineNumber - 1
-	if idx >= 0 && idx < len(codeLines) {
-		codeLine = strings.TrimSpace(codeLines[idx])
+	codeLine := lookupCodeLine(codeLines, lineNumber)
+	if codeLine == "" {
+		codeLine = lookupFileLine(matches[1], lineNumber)
 	}
 	if codeLine == "" {
 		codeLine = fmt.Sprintf("line %d", lineNumber)
 	}
-	message := strings.TrimSpace(line[indices[1]:])
+	message := strings.TrimSpace(matches[3])
 	if message == "" {
 		return codeLine
 	}
 	return fmt.Sprintf("%s: %s", codeLine, message)
+}
+
+func lookupCodeLine(codeLines []string, lineNumber int) string {
+	idx := lineNumber - 1
+	if idx < 0 || idx >= len(codeLines) {
+		return ""
+	}
+	return strings.TrimSpace(codeLines[idx])
+}
+
+func lookupFileLine(path string, lineNumber int) string {
+	if path == "" {
+		return ""
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	current := 1
+	for scanner.Scan() {
+		if current == lineNumber {
+			return strings.TrimSpace(scanner.Text())
+		}
+		current++
+	}
+	return ""
 }
 
 func isNilExpr(expr ast.Expr) bool {
