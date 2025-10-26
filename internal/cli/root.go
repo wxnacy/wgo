@@ -6,7 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/wxnacy/wgo/internal/dto"
 	"github.com/wxnacy/wgo/internal/handler"
 	log "github.com/wxnacy/wgo/internal/logger"
 	"github.com/wxnacy/wgo/internal/terminal"
@@ -15,6 +17,7 @@ import (
 var (
 	logger    = log.GetLogger()
 	startTime time.Time
+	globalReq = dto.NewGlobalReq()
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -74,7 +77,7 @@ func Execute() {
 }
 
 func init() {
-	// rootCmd.PersistentFlags().BoolVarP(&globalReq.IsVerbose, "verbose", "v", false, "打印赘余信息")
+	rootCmd.PersistentFlags().BoolVarP(&globalReq.IsVerbose, "verbose", "v", false, "打印赘余信息")
 	// rootCmd.PersistentFlags().StringVarP(&globalReq.Config, "config", "c", defaultConfig, "指定配置文件地址")
 
 	// root 参数
@@ -84,8 +87,8 @@ func init() {
 	// 运行前全局命令
 	cobra.OnInitialize(func() {
 		// 打印 debug 日志
-		// if globalReq.IsVerbose {
-		// bdpan.SetLogLevel(logrus.DebugLevel)
-		// }
+		if globalReq.IsVerbose {
+			logger.SetLevel(logrus.DebugLevel)
+		}
 	})
 }
