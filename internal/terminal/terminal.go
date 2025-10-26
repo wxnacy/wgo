@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	prompt "github.com/wxnacy/code-prompt"
 	"github.com/wxnacy/code-prompt/pkg/lsp"
@@ -24,8 +25,10 @@ import (
 )
 
 var (
-	logger      = log.GetLogger()
-	fileVersion = 0
+	logger          = log.GetLogger()
+	fileVersion     = 0
+	errCreateLSP    = errors.New("create lsp client")
+	errWaitForReady = errors.New("wait gopls ready")
 )
 
 func Run() error {
@@ -35,7 +38,49 @@ func Run() error {
 
 	// 创建带超时的上下文
 	logger.Debugf("创建带超时的上下文")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Generous timeout
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m := NewWgo(ctx)
+	var client *lsp.LSPClient
+	var err error
+
+	go func() {
+		client, err = prepareLSP(ctx, workspace, codePath)
+		if err != nil {
+			if errors.Is(err, errCreateLSP) {
+				logger.Errorf("创建LSP客户端失败: %v", err)
+				fmt.Println("1. 请确保gopls已安装: go install golang.org/x/tools/gopls@latest")
+				fmt.Println("2. 请确保go版本 >= 1.16")
+				fmt.Println("3. 检查PATH环境变量是否包含gopls")
+			} else if errors.Is(err, errWaitForReady) {
+				logger.Errorf("gopls未能成功加载: %v", err)
+			} else {
+				logger.Errorf("初始化gopls失败: %v", err)
+			}
+			return
+		}
+		m.LspClient(client)
+		return
+	}()
+	defer func() {
+		if client != nil {
+			client.Close()
+		}
+	}()
+
+	return tui.NewTerminal(m).Run()
+}
+
+func _Run() error {
+	// 构建文件URI和工作区URI
+	workspace := handler.GetWorkspace()
+	codePath := handler.GetMainFile()
+
+	// 创建带超时的上下文
+	logger.Debugf("创建带超时的上下文")
+	// ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // Generous timeout
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	logger.Infof("正在启动gopls并建立连接...")
@@ -70,9 +115,36 @@ func Run() error {
 		prompt.WithCompletionFunc(func(input string, cursor int) []prompt.CompletionItem {
 			return completionFunc(input, cursor, client, ctx)
 		}),
-		prompt.WithCompletionSelectFunc(completionSelectFunc),
+		prompt.WithCompletionSelectFunc(prompt.DefaultCompletionLSPSelectFunc),
 	)
 	return tui.NewTerminal(p).Run()
+}
+
+func prepareLSP(ctx context.Context, workspace, codePath string) (*lsp.LSPClient, error) {
+	// 使用可取消上下文防止长时间运行后被统一超时取消
+	// logger.Debugf("创建可取消的上下文")
+	// ctx, cancel := context.WithCancel(context.Background())
+
+	logger.Infof("正在启动gopls并建立连接...")
+	client, err := lsp.NewLSPClient(ctx, workspace, codePath)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errCreateLSP, err)
+	}
+
+	fileURI := "file://" + codePath
+	fileVersion++
+	if err := client.DidOpen(ctx, fileURI, "go", fileVersion, ""); err != nil {
+		logger.Errorf("Initial DidOpen failed: %v", err)
+	}
+
+	logger.Infoln("正在等待gopls加载项目包，请稍候...")
+	if err := client.WaitForReady(ctx); err != nil {
+		client.Close()
+		return nil, fmt.Errorf("%w: %w", errWaitForReady, err)
+	}
+	logger.Infoln("gopls已就绪，您可以开始输入了！")
+
+	return client, nil
 }
 
 func outFunc(input string) string {
@@ -114,6 +186,27 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 	// // TODO: 我希望通过插入 input_suffix 来获取输入位置结尾来获取补全索引，但是计算的有点问题，帮我改下
 	// input_suffix := "// :INPUT"
 	// code := fmt.Sprintf(tpl, input+input_suffix)
+	if cursor < 0 {
+		cursor = 0
+	}
+	if cursor > len(input) {
+		cursor = len(input)
+	}
+
+	inputBefore := input[:cursor]
+	if len(inputBefore) == 0 {
+		return nil
+	}
+
+	prevChar, _ := utf8.DecodeLastRuneInString(inputBefore)
+	if prevChar == utf8.RuneError {
+		return nil
+	}
+
+	if strings.ContainsRune(" \t\n)}]", prevChar) {
+		return nil
+	}
+
 	code := handler.GetCoder().InsertOrJoinCode(input)
 
 	// 从 file URI 中获取文件路径
@@ -126,7 +219,11 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 		return nil
 	}
 
-	err = client.DidOpen(ctx, client.GetFileURI(), "go", fileVersion, code)
+	// 为单次补全请求设置独立的超时，避免复用过期上下文
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	err = client.DidOpen(callCtx, client.GetFileURI(), "go", fileVersion, code)
 	if err != nil {
 		logger.Errorf("textDocument/didOpen failed: %v", err)
 	}
@@ -167,6 +264,7 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 		items = append(items, prompt.CompletionItem{
 			Text: comp.Label,
 			Desc: desc,
+			Ext:  comp,
 		})
 	}
 

@@ -16,7 +16,7 @@ var (
 func GetRequest() *Request {
 	if request == nil {
 		onceRequest.Do(func() {
-			requestId := fmt.Sprintf("%d", time.Now().UnixMicro())
+			requestId := fmt.Sprintf("WGO%d", time.Now().UnixMicro())
 			envID := os.Getenv("WGO_TEST_REQUEST_ID")
 			if envID != "" {
 				requestId = envID
