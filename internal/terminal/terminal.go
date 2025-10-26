@@ -29,19 +29,9 @@ var (
 )
 
 func Run() error {
-	// log.SetOutputFile("prompt.log")
-	// log.SetLogLevel(logrus.DebugLevel)
-
-	// workspace, _ := os.Getwd()
-	// logger.Infof("workspace %s", workspace)
-	// codeDir := filepath.Join(workspace, ".wgo")
-	// os.MkdirAll(codeDir, 0o755)
-	// codePath := filepath.Join(codeDir, "main.go")
+	// 构建文件URI和工作区URI
 	workspace := handler.GetWorkspace()
 	codePath := handler.GetMainFile()
-
-	// 构建文件URI和工作区URI
-	// fileURI := "file://" + codePath
 
 	// 创建带超时的上下文
 	logger.Debugf("创建带超时的上下文")
@@ -76,13 +66,22 @@ func Run() error {
 	fmt.Println("gopls已就绪，您可以开始输入了！")
 
 	p := prompt.NewPrompt(
-		prompt.WithOutFunc(handler.GetCoder().InsertCodeAndRun),
+		prompt.WithOutFunc(outFunc),
 		prompt.WithCompletionFunc(func(input string, cursor int) []prompt.CompletionItem {
 			return completionFunc(input, cursor, client, ctx)
 		}),
 		prompt.WithCompletionSelectFunc(completionSelectFunc),
 	)
 	return tui.NewTerminal(p).Run()
+}
+
+func outFunc(input string) string {
+	out, err := handler.GetCoder().InputAndRun(input)
+	if err != nil {
+		return fmt.Sprintf("\033[31m%v\033[0m\n", err)
+	} else {
+		return out
+	}
 }
 
 func completionSelectFunc(p *prompt.Prompt, input string, cursor int, selected prompt.CompletionItem) {
@@ -111,10 +110,11 @@ func completionSelectFunc(p *prompt.Prompt, input string, cursor int, selected p
 func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context.Context) []prompt.CompletionItem {
 	fileVersion++
 	// 根据输入，使用 client 获取补全结果，代码临时存放在 client.fileURI 中
-	tpl := handler.DEFAULT_CODE_TPL
-	// TODO: 我希望通过插入 input_suffix 来获取输入位置结尾来获取补全索引，但是计算的有点问题，帮我改下
-	input_suffix := "// :INPUT"
-	code := fmt.Sprintf(tpl, input+input_suffix)
+	// tpl := handler.DEFAULT_CODE_TPL
+	// // TODO: 我希望通过插入 input_suffix 来获取输入位置结尾来获取补全索引，但是计算的有点问题，帮我改下
+	// input_suffix := "// :INPUT"
+	// code := fmt.Sprintf(tpl, input+input_suffix)
+	code := handler.GetCoder().InsertOrJoinCode(input)
 
 	// 从 file URI 中获取文件路径
 	filePath := strings.ReplaceAll(client.GetFileURI(), "file://", "")
@@ -132,7 +132,7 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 	}
 
 	// 计算光标位置
-	suffixPos := strings.Index(code, input_suffix)
+	suffixPos := strings.Index(code, handler.INPUT_SUFFIX)
 	if suffixPos == -1 {
 		logger.Errorf("Could not find input_suffix in code")
 		return nil

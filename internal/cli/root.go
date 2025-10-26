@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/wxnacy/go-tools"
 	"github.com/wxnacy/wgo/internal/handler"
 	log "github.com/wxnacy/wgo/internal/logger"
 	"github.com/wxnacy/wgo/internal/terminal"
@@ -28,12 +26,11 @@ var rootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		startTime = time.Now()
 		// 初始化应用
-		log.Init()
-		tools.DirExistsOrCreate(filepath.Dir(handler.GetMainFile()))
-		// initial.InitApp(globalReq)
+		handler.Init()
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		// handler.Destory()
 		duration := time.Since(startTime)
 		logger.Infof("命令执行耗时: %v\n", duration)
 	},

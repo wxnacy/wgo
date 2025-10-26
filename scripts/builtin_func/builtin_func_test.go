@@ -38,3 +38,33 @@ func TestDeserializeFromFileMissing(t *testing.T) {
 		t.Fatal("expected error for missing file, got nil")
 	}
 }
+
+func TestSerializeFunctionRoundTrip(t *testing.T) {
+	resetFuncRegistryForTest()
+
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "func.gob")
+	original := func() string { return "wxnacy" }
+
+	if err := SerializeToFile(filePath, original); err != nil {
+		t.Fatalf("SerializeToFile func error: %v", err)
+	}
+
+	restored, err := DeserializeFromFile[func() string](filePath)
+	if err != nil {
+		t.Fatalf("DeserializeFromFile func error: %v", err)
+	}
+
+	if got := restored(); got != "wxnacy" {
+		t.Fatalf("unexpected restored result: %s", got)
+	}
+
+	resetFuncRegistryForTest()
+}
+
+func resetFuncRegistryForTest() {
+	funcRegistryMu.Lock()
+	defer funcRegistryMu.Unlock()
+	funcRegistry = map[string]any{}
+	funcPointerRegistry = map[uintptr]string{}
+}

@@ -58,7 +58,7 @@ type Coder struct {
 // 输入并运行代码
 // 功能需求:
 // - 调用 InsertOrJoinCode 插入并拼接代码
-// - 调用 ProcessCode 处理代码
+// - 调用 JoinPrintCode 拼接打印代码
 // - 调用 SerializeCodeVars 收集并序列化参数列表
 // - 调用 WriteAndRunCode 写入并运行代码
 func (c *Coder) InputAndRun(input string) (string, error) {

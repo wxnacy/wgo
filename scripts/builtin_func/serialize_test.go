@@ -68,3 +68,32 @@ func TestSerializeTypeFileWritten(t *testing.T) {
 		t.Fatalf("type file not created: %v", err)
 	}
 }
+
+func TestSerializeAndDeserializeFunctionValue(t *testing.T) {
+	resetFuncRegistryForTest()
+	TempDir = t.TempDir()
+	name := "func_value.gob"
+	defer func() {
+		TempDir = ""
+		resetFuncRegistryForTest()
+	}()
+
+	original := func() string { return "wxnacy" }
+	if err := _Serialize(name, original); err != nil {
+		t.Fatalf("Serialize func error: %v", err)
+	}
+
+	value, err := Deserialize(name)
+	if err != nil {
+		t.Fatalf("Deserialize func error: %v", err)
+	}
+
+	restored, ok := value.(func() string)
+	if !ok {
+		t.Fatalf("unexpected type: %T", value)
+	}
+
+	if restored() != "wxnacy" {
+		t.Fatalf("unexpected restored result: %s", restored())
+	}
+}
