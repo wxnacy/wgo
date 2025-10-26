@@ -87,6 +87,34 @@ func main() {
 	}
 }
 
+func TestSerializeCodeVarsStoresFuncLiteral(t *testing.T) {
+	input := `package main
+
+func main() {
+	test := func() string { return "wxnacy" }
+}
+`
+
+	c := &Coder{}
+	got := c.SerializeCodeVars(input)
+	callNames := serializeCallNamesFromCode(t, got)
+	expect := []string{"test"}
+	if !reflect.DeepEqual(callNames, expect) {
+		t.Fatalf("期望序列化顺序为 %v, 实际为 %v", expect, callNames)
+	}
+	if !reflect.DeepEqual(c.VarNames, expect) {
+		t.Fatalf("VarNames 应为 %v, 实际为 %v", expect, c.VarNames)
+	}
+	code, ok := c.FuncCodeMap["test"]
+	if !ok {
+		t.Fatalf("FuncCodeMap 中缺少 test 键: %+v", c.FuncCodeMap)
+	}
+	expectedCode := `func() string { return "wxnacy" }`
+	if code != expectedCode {
+		t.Fatalf("函数代码序列化异常: 期望 %q, 实际 %q", expectedCode, code)
+	}
+}
+
 func TestWriteAndRunCodeIncludesSiblingFiles(t *testing.T) {
 	c := GetCoder()
 

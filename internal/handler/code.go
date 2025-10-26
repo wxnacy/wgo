@@ -52,7 +52,8 @@ func GetCoder() *Coder {
 }
 
 type Coder struct {
-	VarNames []string
+	VarNames    []string          // 代码文件中 main 函数中出现的变量列表
+	FuncCodeMap map[string]string // 代码文件中 main 函数中出现的函数代码
 }
 
 // 输入并运行代码
@@ -133,18 +134,28 @@ func (c *Coder) RunCode(codePath string) (string, error) {
 // 插入或者拼接代码
 // 功能需求：
 // - input 是需要插入的代码片段
-// - 如果 VarNames 有数据使用，参数列表使用 _Deserialize 拼接代码,新输入的代码放在最后
+// - 如果 VarNames 有数据使用，参数列表使用 _Deserialize 拼接代码, 获取变量最终值
+//   - 如果变量是函数，直接拼接函数代码
+//
+// - 新输入的代码放在最后
 // - 最后将拼接好的代码拼接到魔板 DEFAULT_CODE_TPL 中
 func (c *Coder) InsertOrJoinCode(input string) string {
 	codes := make([]string, 0)
 	for _, v := range c.VarNames {
-		name := VAR_PREFIX + v
-		typePath := filepath.Join(GetTempDir(), name+".type")
-		typeName, err := ReadCode(typePath)
-		if err != nil {
-			continue
+		var line string
+		if funcCode, exist := c.FuncCodeMap[v]; exist {
+			// 函数变量直接填充代码
+			line = fmt.Sprintf("%s := %s", v, funcCode)
+		} else {
+			// 普通变量通过反序列化函数获取最终值
+			name := VAR_PREFIX + v
+			typePath := filepath.Join(GetTempDir(), name+".type")
+			typeName, err := ReadCode(typePath)
+			if err != nil {
+				continue
+			}
+			line = fmt.Sprintf("%s, _ := _Deserialize[%s](\"%s\")", v, typeName, name)
 		}
-		line := fmt.Sprintf("%s, _ := _Deserialize[%s](\"%s\")", v, typeName, name)
 		codes = append(codes, line)
 	}
 	codes = append(codes, input+INPUT_SUFFIX)
@@ -159,11 +170,15 @@ func (c *Coder) InsertOrJoinCode(input string) string {
 //   - 举例 `var a = 1` => `_Serialize("var-a", a)`
 //   - 举例 `b := 1` => `_Serialize("var-b", b)`
 //
+// - 如果变量是个函数，则将变量名和对应的函数代码内容插入到 FuncCodeMap 中
+//   - 举例 `test := func () { }` => FuncCodeMap["test"] = "func() {}"
+//
 // - 如果某个参数没有赋值，或者为 nil 则不要做这个操作
 // - 如果代码中已经有 _Serialize 包装的代码，则迁移到 main 函数结尾
 // - 将 _Serialize 包装过的参数名列表保存到 VarNames 中
 // - VarNames 顺序要严格按照 main 中出现的顺序，不可以做其他排序
-// - 增加测试用例
+//
+// 增加测试用例
 func (c *Coder) SerializeCodeVars(code string) string {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", code, parser.ParseComments)
@@ -190,6 +205,13 @@ func (c *Coder) SerializeCodeVars(code string) string {
 	}
 
 	c.VarNames = gatherVarNames(orderedVars, serializedNames, originalSerialize)
+	nameSet := make(map[string]struct{}, len(c.VarNames))
+	for _, name := range c.VarNames {
+		nameSet[name] = struct{}{}
+	}
+	c.captureFuncLiterals(fset, orderedVars, nameSet)
+	logger.Debugf("VarNames %v", c.VarNames)
+	logger.Debugf("FuncCodeMap %#v", c.FuncCodeMap)
 
 	return buf.String()
 }
@@ -582,6 +604,7 @@ func processVariableDeclarations(input string, existingVars map[string]bool) str
 type varEntry struct {
 	name string
 	pos  token.Pos
+	expr ast.Expr
 }
 
 func findMainFunc(file *ast.File) *ast.FuncDecl {
@@ -659,11 +682,12 @@ func collectSerializableVars(body *ast.BlockStmt) []varEntry {
 				if i >= len(node.Rhs) {
 					continue
 				}
-				if isNilExpr(node.Rhs[i]) {
+				rhs := node.Rhs[i]
+				if isNilExpr(rhs) {
 					continue
 				}
 				seen[ident.Name] = struct{}{}
-				entries = append(entries, varEntry{name: ident.Name, pos: ident.NamePos})
+				entries = append(entries, varEntry{name: ident.Name, pos: ident.NamePos, expr: rhs})
 			}
 		case *ast.ValueSpec:
 			valueCount := len(node.Values)
@@ -677,11 +701,12 @@ func collectSerializableVars(body *ast.BlockStmt) []varEntry {
 				if i >= valueCount {
 					continue
 				}
-				if isNilExpr(node.Values[i]) {
+				rhs := node.Values[i]
+				if isNilExpr(rhs) {
 					continue
 				}
 				seen[name.Name] = struct{}{}
-				entries = append(entries, varEntry{name: name.Name, pos: name.NamePos})
+				entries = append(entries, varEntry{name: name.Name, pos: name.NamePos, expr: rhs})
 			}
 		}
 		return true
@@ -746,6 +771,40 @@ func gatherVarNames(entries []varEntry, existing map[string]struct{}, original [
 		seen[name] = struct{}{}
 	}
 	return names
+}
+
+func (c *Coder) captureFuncLiterals(fset *token.FileSet, entries []varEntry, validNames map[string]struct{}) {
+	if len(validNames) == 0 {
+		return
+	}
+	if c.FuncCodeMap == nil {
+		c.FuncCodeMap = make(map[string]string)
+	}
+	updated := make(map[string]struct{})
+	for _, entry := range entries {
+		if _, ok := validNames[entry.name]; !ok {
+			continue
+		}
+		if entry.expr == nil {
+			continue
+		}
+		funcLit, ok := entry.expr.(*ast.FuncLit)
+		if !ok {
+			continue
+		}
+		var buf bytes.Buffer
+		if err := format.Node(&buf, fset, funcLit); err != nil {
+			continue
+		}
+		c.FuncCodeMap[entry.name] = buf.String()
+		updated[entry.name] = struct{}{}
+	}
+	for name := range validNames {
+		if _, ok := updated[name]; ok {
+			continue
+		}
+		delete(c.FuncCodeMap, name)
+	}
 }
 
 func isNilExpr(expr ast.Expr) bool {
