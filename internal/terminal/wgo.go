@@ -40,6 +40,7 @@ func (m Wgo) View() string {
 
 func (m *Wgo) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+	// lsp 启动后，设置补全方法
 	if m.lspClient != nil {
 		m.prompt.CompletionFunc(func(input string, cursor int) []prompt.CompletionItem {
 			return completionFunc(input, cursor, m.lspClient, m.ctx)
