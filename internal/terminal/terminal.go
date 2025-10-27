@@ -50,18 +50,16 @@ func Run() error {
 		if err != nil {
 			if errors.Is(err, errCreateLSP) {
 				logger.Errorf("创建LSP客户端失败: %v", err)
-				fmt.Println("1. 请确保gopls已安装: go install golang.org/x/tools/gopls@latest")
-				fmt.Println("2. 请确保go版本 >= 1.16")
-				fmt.Println("3. 检查PATH环境变量是否包含gopls")
+				logger.Errorf("1. 请确保gopls已安装: go install golang.org/x/tools/gopls@latest")
+				logger.Errorf("2. 请确保go版本 >= 1.16")
+				logger.Errorf("3. 检查PATH环境变量是否包含gopls")
 			} else if errors.Is(err, errWaitForReady) {
 				logger.Errorf("gopls未能成功加载: %v", err)
 			} else {
 				logger.Errorf("初始化gopls失败: %v", err)
 			}
-			return
 		}
 		m.LspClient(client)
-		return
 	}()
 	defer func() {
 		if client != nil {
