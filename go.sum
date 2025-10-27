@@ -76,6 +76,8 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/wxnacy/code-prompt v0.0.11 h1:cq4GViLSubtJHp+PEDvsblHLnwNZKKmmKu04+TFZr1s=
 github.com/wxnacy/code-prompt v0.0.11/go.mod h1:TVh0GAA9/9Bw6Ztj7ZJFAO8uVMM8+UaY+0e6u77SOjo=
+github.com/wxnacy/code-prompt v0.0.12 h1:9m8fouK4jk3PbKuWncaAMZnh2GfkIts9tiDkYxaWvmU=
+github.com/wxnacy/code-prompt v0.0.12/go.mod h1:TVh0GAA9/9Bw6Ztj7ZJFAO8uVMM8+UaY+0e6u77SOjo=
 github.com/wxnacy/go-tools v0.0.8 h1:J/NBAKah9NV+EuHKO4epQ/5uyQAHgL5QY3Sit/oghbc=
 github.com/wxnacy/go-tools v0.0.8/go.mod h1:rbnAW5K6jLHP0EFMtrnDZ1dn8hs3gYI90q5Y84874sA=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=

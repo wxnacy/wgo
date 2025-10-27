@@ -9,7 +9,7 @@ require (
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
-	github.com/wxnacy/code-prompt v0.0.11
+	github.com/wxnacy/code-prompt v0.0.12
 	github.com/wxnacy/go-tools v0.0.8
 )
 
