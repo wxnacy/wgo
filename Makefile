@@ -1,8 +1,27 @@
-.PHONY: install release_builtin_func release
+.PHONY: install release_builtin_func release tools
 
 GO ?= go
 
-install: release_builtin_func
+# 工具安装的默认版本。按照需求使用 latest 保持最新（如需稳定，可改为具体版本号）
+GOPLS_VERSION ?= latest
+GOIMPORTS_VERSION ?= latest
+
+# 需要安装的通用命令行工具列表。安装到 GOBIN 或 GOPATH/bin 中。
+TOOLS := \
+	golang.org/x/tools/gopls@$(GOPLS_VERSION) \
+	golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+
+# 安装项目所需的通用工具。使用 latest，避免固定在 go.mod；版本由 Makefile 控制。
+tools:
+	@echo "Installing tools..."
+	@for t in $(TOOLS); do \
+		echo "  -> $$t"; \
+		$(GO) install $$t || exit 1; \
+	done
+	@echo "Tools installed."
+
+# 注意：install 增加对 tools 的依赖，确保在安装项目可执行文件前安装公共工具
+install: tools release_builtin_func
 	$(GO) install ./cmd/wgo
 
 release_builtin_func:
