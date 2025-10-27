@@ -33,7 +33,9 @@ var rootCmd = &cobra.Command{
 		return nil
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		// handler.Destory()
+		if globalReq.IsProduction() {
+			handler.Destory()
+		}
 		duration := time.Since(startTime)
 		logger.Infof("命令执行耗时: %v\n", duration)
 	},
@@ -78,11 +80,11 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&globalReq.IsVerbose, "verbose", "v", false, "打印赘余信息")
+	rootCmd.PersistentFlags().StringVarP(&globalReq.Env, "env", "e", dto.ENV_PRODUCTION, "运行环境")
 	// rootCmd.PersistentFlags().StringVarP(&globalReq.Config, "config", "c", defaultConfig, "指定配置文件地址")
 
 	// root 参数
 	// rootCmd.PersistentFlags().StringVarP(&bdpanCommand.Path, "path", "p", "/", "直接查看文件")
-	// rootCmd.PersistentFlags().StringVarP(&globalReq.Path, "path", "p", "/", "网盘文件地址")
 	// rootCmd.PersistentFlags().IntVarP(&rootCommand.Limit, "limit", "l", 10, "查询数目")
 	// 运行前全局命令
 	cobra.OnInitialize(func() {

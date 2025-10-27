@@ -11,10 +11,6 @@ import (
 func Init() {
 	log.Init()
 	logger.Infoln("Init Begin")
-	// tools.DirExistsOrCreate(GetMainDir())
-	// tools.DirExistsOrCreate(GetTempDir())
-	// InitBuiltinFuncCode(filepath.Join(GetMainDir(), "builtin_func.go"))
-	// InitBuiltinFuncCode(filepath.Join(GetTempDir(), "builtin_func.go"))
 	for _, dir := range []string{
 		GetMainDir(),
 		GetTempDir(),
