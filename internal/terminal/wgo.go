@@ -14,6 +14,7 @@ func NewWgo(ctx context.Context) *Wgo {
 		ctx: ctx,
 	}
 	p := prompt.NewPrompt(
+		prompt.WithHistoryFile("~/.wgo_history"),
 		prompt.WithOutFunc(outFunc),
 		prompt.WithCompletionSelectFunc(prompt.DefaultCompletionLSPSelectFunc),
 	)

@@ -82,6 +82,8 @@ github.com/wxnacy/code-prompt v0.0.9 h1:v9KNZ//hojpeMNMyO+hC/VXCHF5wNGheYvEc8VHb
 github.com/wxnacy/code-prompt v0.0.9/go.mod h1:TVh0GAA9/9Bw6Ztj7ZJFAO8uVMM8+UaY+0e6u77SOjo=
 github.com/wxnacy/code-prompt v0.0.10 h1:j2ojQ84xZK3xfbhIZiErQTZ9berexIHXudHvy4v2ku0=
 github.com/wxnacy/code-prompt v0.0.10/go.mod h1:TVh0GAA9/9Bw6Ztj7ZJFAO8uVMM8+UaY+0e6u77SOjo=
+github.com/wxnacy/code-prompt v0.0.11 h1:cq4GViLSubtJHp+PEDvsblHLnwNZKKmmKu04+TFZr1s=
+github.com/wxnacy/code-prompt v0.0.11/go.mod h1:TVh0GAA9/9Bw6Ztj7ZJFAO8uVMM8+UaY+0e6u77SOjo=
 github.com/wxnacy/go-tools v0.0.8 h1:J/NBAKah9NV+EuHKO4epQ/5uyQAHgL5QY3Sit/oghbc=
 github.com/wxnacy/go-tools v0.0.8/go.mod h1:rbnAW5K6jLHP0EFMtrnDZ1dn8hs3gYI90q5Y84874sA=
 github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no=
