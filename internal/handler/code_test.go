@@ -35,6 +35,28 @@ func main() {
 	}
 }
 
+func TestJoinPrintCodeSkipsVarDefinition(t *testing.T) {
+    c := &Coder{}
+    input := `package main
+
+func main() {
+    var name string// :INPUT
+}
+`
+
+    got, err := c.JoinPrintCode(input)
+    if err != nil {
+        t.Fatalf("JoinPrintCode 返回错误: %v", err)
+    }
+
+    if !strings.Contains(got, "var name string") {
+        t.Fatalf("应保留 var 定义: %s", got)
+    }
+    if strings.Contains(got, "fmt.Println(") {
+        t.Fatalf("var 定义不应被 fmt.Println 包装: %s", got)
+    }
+}
+
 func TestSerializeCodeVarsSkipsNilAndUnassigned(t *testing.T) {
 	input := `package main
 

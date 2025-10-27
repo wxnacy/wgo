@@ -429,6 +429,9 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 //   - 比如 a := time.Now(); a => a := time.Now() 换行 fmt.Println(a)
 //   - 比如 test := func ()  { return "wxnacy" }; test 方法格式化以后 换行 fmt.Println(test)
 //
+// - 以下情况不要进行 fmt.Println 封装
+//   - var 定义变量，比如 `var name string`
+//
 // - 最后只保留最后一个 fmt.Print 开头的代码
 //
 // 增加测试用例
@@ -473,7 +476,8 @@ func (c *Coder) JoinPrintCode(code string) (string, error) {
 		} else if !strings.HasPrefix(plain, "fmt.Print") &&
 			!strings.Contains(plain, ":=") && !strings.Contains(plain, "=") &&
 			!strings.HasPrefix(plain, "if ") && !strings.HasPrefix(plain, "for ") &&
-			!strings.HasPrefix(plain, "switch ") && !strings.HasPrefix(plain, "select ") {
+			!strings.HasPrefix(plain, "switch ") && !strings.HasPrefix(plain, "select ") &&
+			!strings.HasPrefix(plain, "var ") {
 			replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
 		}
 		newLines = append(newLines, replacement)
