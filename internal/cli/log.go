@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/hpcloud/tail"
+	"github.com/nxadm/tail"
 	"github.com/spf13/cobra"
 )
 
