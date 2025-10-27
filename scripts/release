@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# 发布脚本
+# 功能需求:
+# - 获取当前版本号并匹配对应的 git 标签
+# - 从 HISTORY.md 中提取版本更新说明
+# - 构建 MacOS、Linux、Windows 三个平台的可执行文件并压缩
+# - 调用 gh release 将附件及更新说明发布到远程仓库
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd "$ROOT_DIR"
+
+for cmd in go gh zip; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "未找到依赖命令: $cmd" >&2
+    exit 1
+  fi
+done
+
+version_output="$(go run ./cmd/wgo/main.go --version)"
+VERSION="${version_output##* }"
+VERSION_WITH_V="$VERSION"
+if [[ "$VERSION_WITH_V" != v* ]]; then
+  VERSION_WITH_V="v$VERSION_WITH_V"
+fi
+
+if [[ -z "${VERSION// }" ]]; then
+  echo "未能获取版本号" >&2
+  exit 1
+fi
+
+TAG="$(git tag --list "v$VERSION" | head -n1)"
+if [[ -z "$TAG" ]]; then
+  TAG="$(git tag --list "$VERSION" | head -n1)"
+fi
+
+if [[ -z "$TAG" ]]; then
+  echo "未能在 git tag 中找到版本 $VERSION 对应的标签" >&2
+  exit 1
+fi
+
+HISTORY_FILE="$ROOT_DIR/HISTORY.md"
+if [[ ! -f "$HISTORY_FILE" ]]; then
+  echo "未找到 HISTORY.md 文件" >&2
+  exit 1
+fi
+
+release_notes="$(awk -v ver="$VERSION" '
+  BEGIN {
+    header1 = "## v" ver;
+    header2 = "## " ver;
+    capturing = 0;
+  }
+  /^## / {
+    if (capturing) {
+      exit 0;
+    }
+    if ($0 == header1 || $0 == header2) {
+      capturing = 1;
+      next;
+    }
+  }
+  {
+    if (capturing) {
+      print $0;
+    }
+  }
+' "$HISTORY_FILE" | sed 's/[[:space:]]*$//' )"
+
+if [[ -z "${release_notes// }" ]]; then
+  echo "未从 HISTORY.md 中找到版本 $VERSION 的更新信息" >&2
+  exit 1
+fi
+
+ARTIFACTS_DIR="$ROOT_DIR/tmp/release/$VERSION"
+rm -rf "$ARTIFACTS_DIR"
+mkdir -p "$ARTIFACTS_DIR"
+
+platforms=(
+  "darwin amd64"
+  "linux amd64"
+  "windows amd64"
+)
+
+declare -a assets
+
+for platform in "${platforms[@]}"; do
+  read -r GOOS GOARCH <<<"$platform"
+  binary_name="wgo"
+  if [[ "$GOOS" == "windows" ]]; then
+    binary_name="wgo.exe"
+  fi
+
+  output_binary="$ARTIFACTS_DIR/$binary_name"
+  env CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -o "$output_binary" ./cmd/wgo
+
+  archive_name="wgo_${VERSION_WITH_V}_${GOOS}_${GOARCH}.zip"
+  archive_path="$ARTIFACTS_DIR/$archive_name"
+  zip -j -q "$archive_path" "$output_binary"
+  rm -f "$output_binary"
+
+  assets+=("$archive_path")
+done
+
+notes_file="$ARTIFACTS_DIR/notes.md"
+{
+  printf "# wgo %s\n\n" "$VERSION"
+  printf "%s\n" "$release_notes"
+} > "$notes_file"
+
+if gh release view "$TAG" >/dev/null 2>&1; then
+  gh release edit "$TAG" --notes-file "$notes_file"
+  gh release upload "$TAG" "${assets[@]}" --clobber
+else
+  gh release create "$TAG" "${assets[@]}" --notes-file "$notes_file" --title "$TAG"
+fi
+
+echo "发布完成: $TAG"
