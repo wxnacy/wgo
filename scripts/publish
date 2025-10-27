@@ -1,8 +1,0 @@
-#!/usr/bin/env zsh
-
-TAG_NAME=v`go run . version`
-git tag ${TAG_NAME}
-proxyon
-git push origin ${TAG_NAME}
-proxyoff
-

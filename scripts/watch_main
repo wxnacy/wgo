@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# 监控最新 main.go 内容
+# 功能需求:
+# - 找出 dirname 目录下 WGO 开头的最新的目录
+# - 将目录中的 main.go 文件 cat 出来
+# - 循环设置 1 秒间隔重复上边的操作
+
+set -euo pipefail
+
+dirname=".wgo"
+
+if [[ ! -d "$dirname" ]]; then
+  echo "目标目录 \"$dirname\" 不存在" >&2
+  exit 1
+fi
+
+while true; do
+  latest_dir=""
+  if compgen -G "$dirname/WGO*" > /dev/null; then
+    latest_dir=$(ls -dt "$dirname"/WGO* 2>/dev/null | head -n1 || true)
+  fi
+
+  if [[ -z "$latest_dir" ]]; then
+    echo "未找到符合条件的目录" >&2
+    sleep 1
+    continue
+  fi
+
+  main_file="$latest_dir/main.go"
+
+  if [[ ! -f "$main_file" ]]; then
+    echo "目录 $latest_dir 下不存在 main.go" >&2
+    sleep 1
+    continue
+  fi
+
+  clear
+  # echo "==> $(basename "$latest_dir")/main.go @ $(date '+%Y-%m-%d %H:%M:%S')"
+  echo "==> $main_file @ $(date '+%Y-%m-%d %H:%M:%S')"
+  cat "$main_file"
+  sleep 1
+done
