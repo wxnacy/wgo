@@ -179,11 +179,6 @@ func completionSelectFunc(p *prompt.Prompt, input string, cursor int, selected p
 
 func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context.Context) []prompt.CompletionItem {
 	fileVersion++
-	// 根据输入，使用 client 获取补全结果，代码临时存放在 client.fileURI 中
-	// tpl := handler.DEFAULT_CODE_TPL
-	// // TODO: 我希望通过插入 input_suffix 来获取输入位置结尾来获取补全索引，但是计算的有点问题，帮我改下
-	// input_suffix := "// :INPUT"
-	// code := fmt.Sprintf(tpl, input+input_suffix)
 	if cursor < 0 {
 		cursor = 0
 	}
@@ -204,8 +199,9 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 	if strings.ContainsRune(" \t\n)}]\"", prevChar) {
 		return nil
 	}
+	inputAfter := input[cursor:]
 
-	code := handler.GetCoder().InsertOrJoinCode(input)
+	code := handler.GetCoder().InsertOrJoinCode(inputBefore + handler.INPUT_SUFFIX + inputAfter)
 
 	// 从 file URI 中获取文件路径
 	filePath := strings.ReplaceAll(client.GetFileURI(), "file://", "")

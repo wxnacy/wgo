@@ -248,7 +248,11 @@ func (c *Coder) InsertOrJoinCode(input string) string {
 		}
 		codes = append(codes, line)
 	}
-	codes = append(codes, input+INPUT_SUFFIX)
+	// 如果已经拼接过 INPUT_SUFFIX 不在拼接
+	if strings.Index(input, INPUT_SUFFIX) == -1 {
+		input += INPUT_SUFFIX
+	}
+	codes = append(codes, input)
 	code := strings.Join(codes, "\n")
 	return fmt.Sprintf(DEFAULT_CODE_TPL, code)
 }
