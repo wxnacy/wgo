@@ -79,7 +79,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&globalReq.IsVerbose, "verbose", "v", false, "打印赘余信息")
+	rootCmd.PersistentFlags().BoolVarP(&globalReq.IsVerbose, "verbose", "V", false, "打印 DEBUG 日志，通过 wgo log 查看")
 	rootCmd.PersistentFlags().StringVarP(&globalReq.Env, "env", "e", dto.ENV_PRODUCTION, "运行环境")
 	// rootCmd.PersistentFlags().StringVarP(&globalReq.Config, "config", "c", defaultConfig, "指定配置文件地址")
 
