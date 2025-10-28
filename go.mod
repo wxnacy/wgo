@@ -9,7 +9,7 @@ require (
 	github.com/nxadm/tail v1.4.11
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
-	github.com/wxnacy/code-prompt v0.0.15
+	github.com/wxnacy/code-prompt v0.0.16
 	github.com/wxnacy/go-tools v0.0.8
 )
 

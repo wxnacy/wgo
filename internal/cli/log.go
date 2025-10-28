@@ -8,13 +8,14 @@ import (
 
 	"github.com/nxadm/tail"
 	"github.com/spf13/cobra"
+	"github.com/wxnacy/wgo/internal/config"
 )
 
 var logCmd = &cobra.Command{
 	Use:   "log",
 	Short: "Tail log file",
 	Run: func(cmd *cobra.Command, args []string) {
-		logFile := os.Getenv("HOME") + "/.local/share/wgo/log/wgo.log"
+		logFile := config.Get().LoggerFile
 		if logFile == "" {
 			fmt.Println("Log file not configured")
 			return

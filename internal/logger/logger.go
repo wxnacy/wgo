@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -10,10 +9,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/wxnacy/code-prompt/pkg/log"
 	"github.com/wxnacy/go-tools"
+	"github.com/wxnacy/wgo/internal/config"
 )
 
-func Init() error {
-	SetLogFile()
+func Init(cfg *config.Config) error {
+	SetLogFile(cfg)
 	return nil
 }
 
@@ -21,8 +21,8 @@ func SetLogLevel(level logrus.Level) {
 	log.SetLogLevel(level)
 }
 
-func SetLogFile() {
-	logPath := os.Getenv("HOME") + "/.local/share/wgo/log/wgo.log"
+func SetLogFile(cfg *config.Config) {
+	logPath := cfg.LoggerFile
 	tools.DirExistsOrCreate(filepath.Dir(logPath))
 	// 设置按日期分割日志，最多十个文件
 	logf, err := rotatelogs.New(

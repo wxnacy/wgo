@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 
 	"github.com/wxnacy/go-tools"
+	"github.com/wxnacy/wgo/internal/config"
 	log "github.com/wxnacy/wgo/internal/logger"
 )
 
 func Init() {
-	log.Init()
+	log.Init(config.Get())
 	logger.Infoln("Init Begin")
 	for _, dir := range []string{
 		GetMainDir(),
@@ -29,20 +30,4 @@ func Destory() {
 	os.RemoveAll(GetMainDir())
 	os.RemoveAll(GetTempDir())
 	logger.Infoln("Destory End")
-}
-
-func GetWorkspace() string {
-	return GetRequest().Workspace
-}
-
-func GetMainDir() string {
-	return GetRequest().MainDir
-}
-
-func GetMainFile() string {
-	return GetRequest().MainFile
-}
-
-func GetTempDir() string {
-	return GetRequest().TempDir
 }

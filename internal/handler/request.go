@@ -67,3 +67,19 @@ func init() {
 		r.TempDir,
 	)
 }
+
+func GetWorkspace() string {
+	return GetRequest().Workspace
+}
+
+func GetMainDir() string {
+	return GetRequest().MainDir
+}
+
+func GetMainFile() string {
+	return GetRequest().MainFile
+}
+
+func GetTempDir() string {
+	return GetRequest().TempDir
+}
