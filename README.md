@@ -1,49 +1,58 @@
-# wgo 类 Python 的 Golang 脚本化运行工具
+# wgo · 类 IPython 的 Golang 交互运行工具
 
-wgo 是类似 Python 命令的脚本化运行工具。
+<div align="center">
 
-## 预览
+<img src="assets/wgo_main.png" alt="wgo 主图" width="720" />
 
-<!-- ![1](https://raw.githubusercontent.com/wxnacy/image/master/blog/wgo1.gif) -->
-![wgo1](screen/wgo1.gif)
+</div>
+
+wgo 提供一个面向初学者与工程实践的 Go 交互式环境（REPL-like），支持即时编写、补全、运行与查看结果。
+核心特性包括基于 LSP 的代码补全、表达式自动打印、变量持久化复用、错误信息可读化等。
+
+## 功能预览
+
+![preview](assets/preview.gif)
 
 ## 安装
 
-可以从 [releases](https://github.com/wxnacy/wgo/releases) 页面下载二进制文件运行
+支持通过二进制、go install 或 Makefile 安装。
 
-也可以直接安装最新版本
+- 二进制下载：前往 [releases](https://github.com/wxnacy/wgo/releases)
+- go install：
 
 ```bash
-$ go get -u github.com/wxnacy/wgo
+$ go install github.com/wxnacy/wgo/cmd/wgo@latest
+$ go install golang.org/x/tools/cmd/goimports@latest
+$ go install golang.org/x/tools/gopls@latest
 ```
 
-***暂不支持 windows 平台***
+- Makefile（推荐开发者）：会自动安装依赖工具并生成内置函数文件
+
+```bash
+make install
+# 验证
+wgo -h
+```
+
+说明：
+- 代码补全依赖 gopls，`make install` 会先执行 `make tools` 安装 `gopls` 与 `goimports`（默认 latest）。
+- 已在 macOS、Linux 测试；Windows 暂不支持。
 
 ## 使用
 
 ```bash
-$ wgo
->>> fmt.Println("Hello World")
-Hello World
-
->>>
+wgo
+>>> fmt.Println("Hello, wgo")
+Hello, wgo
 ```
 
-**退出**
+### 变量持久化与复用
 
-`<c-d>` 或者输入 `exit`
+- 每次执行后，`main` 中出现且已赋值的变量会被序列化保存。
+- 下次输入时，这些变量会被反序列化还原，可直接继续使用（包括函数字面量）。
 
-**导入包**
 
-脚本内置了一些包，包括 `fmt` `os` `time` `strings`
-
-也可以导入新的包，就像在文件里写代码一样
-
-```bash
->>> import "bytes"
-```
-
-**直接输出变量**
+### 直接输出变量
 
 可以像 Python 命令行那样，输入变量名，直接打印
 
@@ -52,22 +61,28 @@ Hello World
 >>> t
 2019-03-19 17:54:36.626646507 +0800 CST m=+0.000424636
 
->>>
 ```
 
-**代码补全**
-
-如果想要代码补全，需要安装 [gocode](https://github.com/mdempsky/gocode)
+或者直接输入对象进行打印
 
 ```bash
-$ go get -u github.com/mdempsky/gocode
+>>> time.Now()
+2019-03-19 17:54:36.626646507 +0800 CST m=+0.000424636
 ```
 
-现在的代码补全功能，如果当行代码比较复杂，需要在想要补全的报名前加一个空格，这不影响代码输出，只是稍微有点别扭，比如：
+### 退出
 
-![wgo](screen/wgo.gif)
+`<c-d>` 或者输入 `/exit`
+
+### 代码补全
+
+如果想要代码补全，需要安装 [gopls](https://github.com/golang/tools/tree/master/gopls)
+
+```bash
+$ go install golang.org/x/tools/gopls@latest
+```
+
 
 ## 更新日志
 
 [HISTORY](HISTORY.md)
-
