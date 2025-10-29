@@ -33,8 +33,34 @@ checksum:
   name_template: "checksums.txt"
 
 changelog:
+  use: git
   sort: asc
-  use: github-native
+  filters:
+    exclude:
+      - '^chore'
+      - '^style'
+      - '^ci'
+      - '^build'
+      - '^test'
+      - '^Merge pull request'
+      - '^Merge branch'
+  groups:
+    - title: 'Features'
+      regexp: '^feat'
+    - title: 'Bug Fixes'
+      regexp: '^fix'
+    - title: 'Performance'
+      regexp: '^perf'
+    - title: 'Refactor'
+      regexp: '^refactor'
+    - title: 'Documentation'
+      regexp: '^docs'
+    - title: 'Build & CI'
+      regexp: '^(build|ci)'
+    - title: 'Tests'
+      regexp: '^test'
+    - title: 'Chores'
+      regexp: '^chore'
 
 brews:
   - name: wgo
