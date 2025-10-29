@@ -13,6 +13,7 @@ builds:
     goos:
       - darwin
       - linux
+      - windows
     goarch:
       - amd64
       - arm64
@@ -24,6 +25,9 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
+    format_overrides:
+      - goos: windows
+        format: zip
 
 checksum:
   name_template: "checksums.txt"
@@ -45,8 +49,18 @@ brews:
       name: "wxnacy"
       email: ""
     skip_upload: false
-    # 默认安装逻辑即可：bin.install "wgo"
-    # 如需补全与手册，后续可扩展 files 与 install 脚本
+    install: |
+      bin.install "wgo"
+      # 通过可执行文件生成 bash/zsh/fish/powershell 补全
+      generate_completions_from_executable(bin/"wgo", "completion", base_name: "wgo")
+    caveats: |
+      代码补全依赖 gopls：
+        brew install gopls
+        或
+        go install golang.org/x/tools/gopls@latest
+
+      自动导入/格式化依赖 goimports：
+        go install golang.org/x/tools/cmd/goimports@latest
 
 release:
   github:
