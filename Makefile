@@ -27,6 +27,14 @@ install: tools release_builtin_func
 release_builtin_func:
 	$(GO) run ./scripts/release_builtin_func/main.go
 
+# 正常运行
+run:
+	$(GO) run ./cmd/wgo/main.go
+
+# 开发环境运行
+run_dev:
+	$(GO) run ./cmd/wgo/main.go -V -e dev
+
 # 代码发布
 # 功能需求:
 # - 创建 scripts/release 脚本完成具体操作，然后 `make release` 调用该脚本
