@@ -1,0 +1,54 @@
+version: 2
+project_name: wgo
+
+before:
+  hooks:
+    - go run ./scripts/release_builtin_func/main.go
+
+builds:
+  - id: wgo
+    main: ./cmd/wgo
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/wxnacy/wgo/internal/cli.Version={{.Version}}
+
+archives:
+  - id: wgo-archive
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github-native
+
+brews:
+  - name: wgo
+    description: "类 IPython 的 Golang 交互运行工具"
+    homepage: "https://github.com/wxnacy/wgo"
+    license: "MIT"
+    repository:
+      owner: wxnacy
+      name: homebrew-tap
+    directory: Formula
+    commit_author:
+      name: "wxnacy"
+      email: ""
+    skip_upload: false
+    # 默认安装逻辑即可：bin.install "wgo"
+    # 如需补全与手册，后续可扩展 files 与 install 脚本
+
+release:
+  github:
+    owner: wxnacy
+    name: wgo
