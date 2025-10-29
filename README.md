@@ -15,10 +15,21 @@ wgo 提供一个面向初学者与工程实践的 Go 交互式环境（REPL-like
 
 ## 安装
 
-支持通过二进制、go install 或 Makefile 安装。
+推荐使用 Homebrew（macOS/Linux）：
 
-- 二进制下载：前往 [releases](https://github.com/wxnacy/wgo/releases)
-- go install：
+```bash
+brew install wxnacy/tap/wgo
+```
+
+升级：
+
+```bash
+brew upgrade wxnacy/tap/wgo
+```
+
+其他安装方式：
+
+- go install
 
 ```bash
 $ go install github.com/wxnacy/wgo/cmd/wgo@latest
@@ -26,7 +37,7 @@ $ go install golang.org/x/tools/cmd/goimports@latest
 $ go install golang.org/x/tools/gopls@latest
 ```
 
-- Makefile（推荐开发者）：会自动安装依赖工具并生成内置函数文件
+- Makefile（开发者）
 
 ```bash
 make install
@@ -35,8 +46,8 @@ wgo -h
 ```
 
 说明：
-- 代码补全依赖 gopls，`make install` 会先执行 `make tools` 安装 `gopls` 与 `goimports`（默认 latest）。
-- 已在 macOS、Linux 测试；Windows 暂不支持。
+- 代码补全依赖 gopls；可通过 `brew install gopls` 或 `go install golang.org/x/tools/gopls@latest` 安装。
+- 已在 macOS、Linux 测试；Windows 用户请前往 [Releases](https://github.com/wxnacy/wgo/releases) 下载对应 zip 包。
 
 ## 使用
 
