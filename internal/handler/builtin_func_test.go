@@ -28,3 +28,15 @@ func TestInitBuiltinFuncCodeEmptyFilename(t *testing.T) {
 		t.Fatal("expected error for empty filename, got nil")
 	}
 }
+
+func TestHasFunctionReturnByRun(t *testing.T) {
+	mainFile := filepath.Join(os.TempDir(), "wgo", "main.go")
+	defer os.Remove(mainFile)
+
+	if HasFunctionReturnByRun("time.Sleep", mainFile) {
+		t.Fatal("time.Sleep not have out, but get")
+	}
+	if !HasFunctionReturnByRun("time.Now", mainFile) {
+		t.Fatal("time.Now have out , but not get")
+	}
+}

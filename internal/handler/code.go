@@ -421,6 +421,7 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 // 格式化代码
 // - code 是个包含 main 函数的 go 代码
 // - 对 code 完成一下一些列操作后返回
+// - 目的是为了对 main 函数最后一行表达式进行执行或自动打印其结果
 //
 // 功能需求:
 // - 对未使用的表达式或参数使用 fmt.Println 进行包装
@@ -431,6 +432,9 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 //
 // - 以下情况不要进行 fmt.Println 封装
 //   - var 定义变量，比如 `var name string`
+//   - 如果表达式是函数执行，需要提前括号前的完整方法名字符串传入 `c.CanPrintFunction()` 方法获取是否有输出，如果返回 false 则不进行 fmt.Println 封装
+//     1 比如 `handler.Init()` => `c.CanPrintFunction(code, "handler.Init")`
+//     2 比如 `handler.GetCoder().JoinPrintCode("time.Now")` => `c.CanPrintFunction(code, "handler.GetCoder().JoinPrintCode")`
 //
 // - 最后只保留最后一个 fmt.Print 开头的代码
 //
@@ -478,7 +482,23 @@ func (c *Coder) JoinPrintCode(code string) (string, error) {
 			!strings.HasPrefix(plain, "if ") && !strings.HasPrefix(plain, "for ") &&
 			!strings.HasPrefix(plain, "switch ") && !strings.HasPrefix(plain, "select ") &&
 			!strings.HasPrefix(plain, "var ") {
-			replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
+			// 如果是调用表达式，提取括号前的完整方法名，调用 c.CanPrintFunction 判定
+			if idx := strings.Index(plain, "("); idx > 0 && strings.HasSuffix(plain, ")") {
+				name := extractFuncChain(plain[:idx])
+				if name != "" {
+					if c.CanPrintFunction(code, name) {
+						replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
+					} else {
+						replacement = indent + plain
+					}
+				} else {
+					// 非标准选择器链，沿用旧逻辑：打印
+					replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
+				}
+			} else {
+				// 非调用表达式，沿用旧逻辑：打印
+				replacement = indent + fmt.Sprintf("fmt.Println(%s)", plain)
+			}
 		}
 		newLines = append(newLines, replacement)
 
@@ -589,6 +609,26 @@ func (c *Coder) ProcessCode(code string) (string, error) {
 	return string(formatted), nil
 }
 
+// 通过判断方法是否有返回值来确认是否可以打印
+// 参数：
+//   - code: 待解析的Go代码文本（需包含完整的包声明和函数定义）
+//   - funcName: 要检查的函数名称（区分大小写）
+//
+// 功能需求:
+//   - 先假设 funcName 在 code 中，判断方法是否有返回值
+//   - 有报错说明没有，那就通过 HasFunctionReturnByRun 判断方法是否有返回值
+//
+// 测试用例
+//   - funcName 要有 code 中的一个方法
+//   - funcName 要有当前项目中一个其他包的方法
+func (c *Coder) CanPrintFunction(code, funcName string) bool {
+	flag, err := HasFunctionReturnByCode(code, funcName)
+	if err != nil {
+		flag = HasFunctionReturnByRun(funcName, filepath.Join(GetMainDir(), "print_func_has_out", "main.go"))
+	}
+	return flag
+}
+
 // processFmtPrintStatements 处理代码中的 fmt.Print 语句，只保留最后一个
 func processFmtPrintStatements(code string) string {
 	// 按行分割代码
@@ -638,7 +678,22 @@ func wrapUnusedExpressions(code string) (string, error) {
 				// 检查是否已经是有效的语句
 				trimmed := strings.TrimSpace(line)
 				if !strings.Contains(trimmed, ":=") && !strings.Contains(trimmed, "=") {
-					// 包装表达式到 fmt.Println
+					// 判断是否为函数调用且有返回值：有返回值才包装
+					idx := strings.Index(trimmed, "(")
+					if idx > 0 && strings.HasSuffix(trimmed, ")") {
+						name := extractFuncChain(trimmed[:idx])
+						if name != "" {
+							if GetCoder().CanPrintFunction(code, name) {
+								indent := strings.Repeat("\t", strings.Count(line, "\t"))
+								lines[i] = indent + "fmt.Println(" + trimmed + ")"
+							} else {
+								// 无返回值：保持原样执行
+								lines[i] = line
+							}
+							continue
+						}
+					}
+					// 无法识别调用名，退回到默认包装策略
 					indent := strings.Repeat("\t", strings.Count(line, "\t"))
 					lines[i] = indent + "fmt.Println(" + trimmed + ")"
 				}
@@ -647,6 +702,21 @@ func wrapUnusedExpressions(code string) (string, error) {
 	}
 
 	return strings.Join(lines, "\n"), nil
+}
+
+// 提取括号前的完整调用名（选择器链），如：
+//
+//	"time.Now"、"handler.Init"、"handler.GetCoder().JoinPrintCode"（注意：只用到最后一段前的链，括号前部分）
+//
+// 返回空字符串表示无法识别为有效的选择器链。
+func extractFuncChain(s string) string {
+	s = strings.TrimSpace(s)
+	// 允许字母、数字、下划线与点的链
+	re := regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+	if re.MatchString(s) {
+		return s
+	}
+	return ""
 }
 
 // processVariableDeclarations 处理输入代码中的变量声明，将重复声明转换为赋值

@@ -26,18 +26,135 @@ func main() {
 
 	callNames := serializeCallNamesFromCode(t, got)
 	expect := []string{"a", "b"}
+
 	if !reflect.DeepEqual(callNames, expect) {
 		t.Fatalf("unexpected serialize call order: %v", callNames)
 	}
-
 	if !reflect.DeepEqual(c.VarNames, expect) {
 		t.Fatalf("unexpected VarNames: %v", c.VarNames)
 	}
 }
 
-func TestJoinPrintCodeSkipsVarDefinition(t *testing.T) {
+// CanPrintFunction: 代码内定义的函数有返回值 => true
+func TestCanPrintFunction_CodeLocal_WithReturn(t *testing.T) {
+    c := &Coder{}
+    code := `package main
+
+func F() int { return 1 }
+
+func main() {}
+`
+    if !c.CanPrintFunction(code, "F") {
+        t.Fatalf("期望 F 有返回值，CanPrintFunction 返回 false")
+    }
+}
+
+// CanPrintFunction: 代码内定义的函数无返回值 => false
+func TestCanPrintFunction_CodeLocal_NoReturn(t *testing.T) {
+    c := &Coder{}
+    code := `package main
+
+func G() {}
+
+func main() {}
+`
+    if c.CanPrintFunction(code, "G") {
+        t.Fatalf("期望 G 无返回值，CanPrintFunction 返回 true")
+    }
+}
+
+// CanPrintFunction: 外部标准库有返回值（time.Now）=> true（通过反射探测）
+func TestCanPrintFunction_External_TimeNow(t *testing.T) {
+    c := &Coder{}
+    code := `package main
+func main() {}
+`
+    if !c.CanPrintFunction(code, "time.Now") {
+        t.Fatalf("期望 time.Now 有返回值，CanPrintFunction 返回 false")
+    }
+}
+
+// CanPrintFunction: 外部标准库无返回值（time.Sleep）=> false（通过反射探测）
+func TestCanPrintFunction_External_TimeSleep(t *testing.T) {
+    c := &Coder{}
+    code := `package main
+func main() {}
+`
+    if c.CanPrintFunction(code, "time.Sleep") {
+        t.Fatalf("期望 time.Sleep 无返回值，CanPrintFunction 返回 true")
+    }
+}
+
+
+// 无返回值（标准库）不应被自动打印
+func TestJoinPrintCode_NoReturnCall_TimeSleep_NotWrapped(t *testing.T) {
     c := &Coder{}
     input := `package main
+
+import "time"
+
+func main() {
+    time.Sleep(0)// :INPUT
+}
+`
+    got, err := c.JoinPrintCode(input)
+    if err != nil {
+        t.Fatalf("JoinPrintCode 返回错误: %v", err)
+    }
+    if strings.Contains(got, "fmt.Println(time.Sleep(0))") {
+        t.Fatalf("无返回值的 time.Sleep 不应被打印: %s", got)
+    }
+}
+
+// 链式调用（有返回值）应被打印
+func TestJoinPrintCode_ChainedCall_WithOut_Wrapped(t *testing.T) {
+    c := &Coder{}
+    input := `package main
+
+type T struct{}
+func GetT() T { return T{} }
+func (T) Val() int { return 42 }
+
+func main() {
+    GetT().Val()// :INPUT
+}
+`
+    got, err := c.JoinPrintCode(input)
+    if err != nil {
+        t.Fatalf("JoinPrintCode 返回错误: %v", err)
+    }
+    if !strings.Contains(got, "fmt.Println(GetT().Val())") {
+        t.Fatalf("链式有返回值调用应被打印: %s", got)
+    }
+}
+
+// 无返回值调用不应被自动打印
+func TestJoinPrintCode_NoReturnCall_NotWrapped(t *testing.T) {
+	c := &Coder{}
+	input := `package main
+
+func InitX() {}
+
+func main() {
+    InitX()// :INPUT
+}
+`
+
+	got, err := c.JoinPrintCode(input)
+	if err != nil {
+		t.Fatalf("JoinPrintCode 返回错误: %v", err)
+	}
+	if strings.Contains(got, "fmt.Println(InitX())") {
+		t.Fatalf("无返回值调用不应被 fmt.Println 包裹: %s", got)
+	}
+	if !strings.Contains(got, "InitX()") {
+		t.Fatalf("应当保留原始调用以顺利执行: %s", got)
+	}
+}
+
+func TestJoinPrintCodeSkipsVarDefinition(t *testing.T) {
+	c := &Coder{}
+	input := `package main
 
 func main() {
     var name string// :INPUT

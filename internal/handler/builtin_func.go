@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+
+	"github.com/wxnacy/go-tools"
 )
 
 // 功能需求
@@ -29,6 +32,40 @@ func InitBuiltinFuncCode(filename string) error {
 
 	return nil
 }
+
+// 通过运行代码判断方法是否有输出
+func HasFunctionReturnByRun(funcStr, mainFile string) bool {
+	tools.DirExistsOrCreate(filepath.Dir(mainFile))
+	code := fmt.Sprintf(PRINT_FUNC_HAS_OUT_TEMPLATE, funcStr)
+	logger.Debugf("HasFunctionReturnByRun code %s\n", code)
+	out, err := WriteAndRunCode(code, mainFile)
+	logger.Debugf("HasFunctionReturnByRun run out: %s err: %v", out, err)
+	if err != nil {
+		return false
+	}
+	flag, err := strconv.ParseBool(out)
+	if err != nil {
+		return false
+	}
+	return flag
+}
+
+const PRINT_FUNC_HAS_OUT_TEMPLATE = `package main
+
+import (
+	"fmt"
+	"reflect"
+)
+
+func HasOut(i any) bool {
+	t := reflect.TypeOf(i)
+	return t.NumOut() > 0
+}
+
+func main() {
+	fmt.Println(HasOut(%s))
+}
+`
 
 var BuiltinFuncCode = `package main
 
