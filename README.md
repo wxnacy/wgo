@@ -51,19 +51,14 @@ wgo -h
 
 ## 使用
 
+### 交互模式
+
 ```bash
-wgo
+$ wgo
 >>> fmt.Println("Hello, wgo")
 Hello, wgo
 ```
 
-### 变量持久化与复用
-
-- 每次执行后，`main` 中出现且已赋值的变量会被序列化保存。
-- 下次输入时，这些变量会被反序列化还原，可直接继续使用（包括函数字面量）。
-
-
-### 直接输出变量
 
 可以像 Python 命令行那样，输入变量名，直接打印
 
@@ -74,26 +69,31 @@ Hello, wgo
 
 ```
 
-或者直接输入对象进行打印
+或者直接输入可打印对象进行打印
 
 ```bash
 >>> time.Now()
 2019-03-19 17:54:36.626646507 +0800 CST m=+0.000424636
 ```
 
-### 退出
+### 命令行运行
 
-`<c-d>` 或者输入 `/exit`
-
-### 代码补全
-
-如果想要代码补全，需要安装 [gopls](https://github.com/golang/tools/tree/master/gopls)
+运行代码片段，和交互模式一样
 
 ```bash
-$ go install golang.org/x/tools/gopls@latest
+$ wgo run "time.Now()"
+2025-10-30 22:27:46.695291 +0800 CST m=+0.000179126
 ```
+
+也可以直接运行 `main.go` 文件
+
+```bash
+$ wgo run scripts/release_builtin_func/main.go
+```
+
+> 如果目标文件夹中有多个文件会自动包含，类似 `go run .`
 
 
 ## 更新日志
 
-[HISTORY](HISTORY.md)
+[Releases](https://github.com/wxnacy/wgo/releases)
