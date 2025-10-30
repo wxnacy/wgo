@@ -80,7 +80,7 @@ func (c *Coder) InputAndRun(input string) (string, error) {
 		return "", err
 	}
 	codePath := GetMainFile()
-	out, err := c.WriteAndRunCode(code, codePath)
+	out, err := WriteAndRunCode(code, codePath)
 	if err != nil {
 		logger.Errorf("RunCode Err:\n%v", err)
 	} else {
@@ -162,63 +162,6 @@ func (c *Coder) AfterRunCode(code, runOut string, runErr error) (string, error) 
 	}
 
 	return runOut, runErr
-}
-
-// 写入代码并运行
-// 功能需求:
-// - 写入到指定地址 codePath
-// - 调用 RunCode 运行代码
-//
-// 增加测试用例
-func (c *Coder) WriteAndRunCode(code, codePath string) (string, error) {
-	// 写入文件
-	err := WriteCode(code, codePath)
-	if err != nil {
-		logger.Errorf("写入临时文件失败: %v\n", err)
-		panic(err)
-	}
-	return c.RunCode(codePath)
-}
-
-// 运行 main 文件
-// 功能需求:
-// - 对 codePath 进行 goimports 操作
-// - go run codePath 时，需要带上同目录下其他的 go 文件
-func (c *Coder) RunCode(codePath string) (string, error) {
-	// 运行 goimports
-	if _, err := Command("goimports", "-w", codePath); err != nil {
-		logger.Errorf("goimports failed: %v", err)
-		return "", err
-	}
-
-	// 收集同目录下的其他 Go 文件
-	dir := filepath.Dir(codePath)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		logger.Errorf("读取目录失败: %v", err)
-		return "", err
-	}
-
-	var goFiles []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(entry.Name(), ".go") {
-			continue
-		}
-		fullPath := filepath.Join(dir, entry.Name())
-		if fullPath == codePath {
-			continue
-		}
-		goFiles = append(goFiles, fullPath)
-	}
-
-	sort.Strings(goFiles)
-	args := append([]string{"run", codePath}, goFiles...)
-
-	// 运行代码
-	return Command("go", args...)
 }
 
 // 插入或者拼接代码

@@ -50,6 +50,10 @@ func RunCode(codePath string) (string, error) {
 		if !strings.HasSuffix(entry.Name(), ".go") {
 			continue
 		}
+		// 过滤测试文件
+		if strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
 		fullPath := filepath.Join(dir, entry.Name())
 		if fullPath == codePath {
 			continue

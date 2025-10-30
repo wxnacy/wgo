@@ -16,7 +16,7 @@ var runCmd = &cobra.Command{
 		var err error
 		code := args[0]
 		if tools.FileExists(code) {
-			out, err = handler.GetCoder().RunCode(code)
+			out, err = handler.RunCode(code)
 		} else {
 			out, err = handler.GetCoder().InputAndRun(code)
 		}
