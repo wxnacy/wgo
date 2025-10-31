@@ -85,9 +85,6 @@ brews:
         或
         go install golang.org/x/tools/gopls@latest
 
-      自动导入/格式化依赖 goimports：
-        go install golang.org/x/tools/cmd/goimports@latest
-
 release:
   github:
     owner: wxnacy

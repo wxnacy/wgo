@@ -4,12 +4,11 @@ GO ?= go
 
 # 工具安装的默认版本。按照需求使用 latest 保持最新（如需稳定，可改为具体版本号）
 GOPLS_VERSION ?= latest
-GOIMPORTS_VERSION ?= latest
 
 # 需要安装的通用命令行工具列表。安装到 GOBIN 或 GOPATH/bin 中。
+# 仅需 gopls（代码补全）。
 TOOLS := \
-	golang.org/x/tools/gopls@$(GOPLS_VERSION) \
-	golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+	golang.org/x/tools/gopls@$(GOPLS_VERSION)
 
 # 安装项目所需的通用工具。使用 latest，避免固定在 go.mod；版本由 Makefile 控制。
 tools:
@@ -34,6 +33,10 @@ run:
 # 开发环境运行
 run_dev:
 	$(GO) run ./cmd/wgo/main.go -V -e dev
+
+# 监控 main 文件
+watch_main:
+	./scripts/watch_main
 
 # 代码发布
 # 功能需求:
