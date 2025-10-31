@@ -33,7 +33,6 @@ brew upgrade wxnacy/tap/wgo
 
 ```bash
 $ go install github.com/wxnacy/wgo/cmd/wgo@latest
-$ go install golang.org/x/tools/cmd/goimports@latest
 $ go install golang.org/x/tools/gopls@latest
 ```
 
