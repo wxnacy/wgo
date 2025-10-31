@@ -196,7 +196,7 @@ func completionFunc(input string, cursor int, client *lsp.LSPClient, ctx context
 		return nil
 	}
 
-	if strings.ContainsRune(" \t\n)}]\"", prevChar) {
+	if strings.ContainsRune(" \t\n)}]:=\"", prevChar) {
 		return nil
 	}
 	inputAfter := input[cursor:]
