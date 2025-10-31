@@ -2,10 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"go/ast"
 	"go/format"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
 	"sort"
@@ -126,52 +123,4 @@ func WriteAndRunCode(code, codePath string) (string, error) {
 		return "", err
 	}
 	return RunCode(codePath)
-}
-
-// HasFunctionReturnByCode 检查代码文本中指定名称的函数是否有返回值
-// 参数：
-//   - code: 待解析的Go代码文本（需包含完整的包声明和函数定义）
-//   - funcName: 要检查的函数名称（区分大小写）
-//
-// 返回：
-//   - bool: 函数是否有返回值（true=有，false=无）
-//   - error: 错误信息（如代码解析失败、函数未找到等）
-func HasFunctionReturnByCode(code, funcName string) (bool, error) {
-	// 1. 解析代码文本（虚拟一个文件名，如 "virtual.go"，不影响解析）
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "virtual.go", []byte(code), parser.ParseComments)
-	if err != nil {
-		return false, fmt.Errorf("解析代码文本失败: %w", err) // 包装语法错误等信息
-	}
-
-	// 2. 遍历AST，查找目标函数并检查返回值（逻辑与之前一致）
-	var hasReturn bool
-	found := false
-
-	ast.Inspect(file, func(n ast.Node) bool {
-		if found {
-			return false // 找到后提前退出
-		}
-
-		funcDecl, ok := n.(*ast.FuncDecl)
-		if !ok {
-			return true
-		}
-
-		if funcDecl.Name.Name == funcName {
-			found = true
-			// 检查返回值列表
-			hasReturn = funcDecl.Type.Results != nil && len(funcDecl.Type.Results.List) > 0
-			return false
-		}
-
-		return true
-	})
-
-	// 3. 处理未找到函数的情况
-	if !found {
-		return false, fmt.Errorf("代码文本中未找到函数 %q", funcName)
-	}
-
-	return hasReturn, nil
 }

@@ -566,7 +566,7 @@ func (c *Coder) ProcessCode(code string) (string, error) {
 //   - funcName 要有 code 中的一个方法
 //   - funcName 要有当前项目中一个其他包的方法
 func (c *Coder) CanPrintFunction(code, funcName string) bool {
-	flag, err := HasFunctionReturnByCode(code, funcName)
+	flag, err := utils.HasFunctionReturnByCode(code, funcName)
 	if err != nil {
 		flag = HasFunctionReturnByRun(funcName, filepath.Join(GetMainDir(), "print_func_has_out", "main.go"))
 	}
