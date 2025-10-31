@@ -353,34 +353,6 @@ func processCode(code string) (string, error) {
 	return string(formatted), nil
 }
 
-func insertCodeAndRun(input string) string {
-	tpl := handler.DEFAULT_CODE_TPL
-	code := fmt.Sprintf(tpl, input)
-	code, err := processCode(code)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error processing code: %v\n", err)
-	}
-
-	codePath := handler.GetMainFile()
-	err = handler.WriteCode(code, codePath)
-	if err != nil {
-		fmt.Printf("写入临时文件失败: %v\n", err)
-		panic(err)
-	}
-
-	if _, err := Command("goimports", "-w", codePath); err != nil {
-		logger.Errorf("goimports failed: %v", err)
-		return err.Error()
-	}
-	out, err := Command("go", "run", codePath)
-	if err != nil {
-		logger.Errorf("go run failed: %v", err)
-		// 即使执行失败，也返回 out
-		return out
-	}
-	return out + "\n"
-}
-
 func Command(name string, args ...string) (string, error) {
 	c := exec.Command(name, args...)
 	var out bytes.Buffer

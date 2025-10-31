@@ -339,9 +339,9 @@ func (c *Coder) InsertCodeAndRun(input string) string {
 		panic(err)
 	}
 
-	// 运行 goimports
-	if _, err := Command("goimports", "-w", codePath); err != nil {
-		logger.Errorf("goimports failed: %v", err)
+	// 运行 imports
+	if _, err := ImportsInFile(codePath); err != nil {
+		logger.Errorf("imports failed: %v", err)
 		return err.Error()
 	}
 
