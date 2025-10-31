@@ -209,6 +209,7 @@ func (c *Coder) InsertOrJoinCode(input string) string {
 //
 // - 如果变量是个函数，则将变量名和对应的函数代码内容插入到 FuncCodeMap 中
 //   - 举例 `test := func () { }` => FuncCodeMap["test"] = "func() {}"
+//   - 如果方法有更新，Map 也要更新，比如 `test = func () int { return 1}` => FuncCodeMap["test"] = "func() int { return 1}"
 //
 // - 如果某个参数没有赋值，或者为 nil 则不要做这个操作
 // - 如果代码中已经有 _Serialize 包装的代码，则迁移到 main 函数结尾
@@ -774,8 +775,10 @@ func removeSerializeStmts(stmts []ast.Stmt) []ast.Stmt {
 }
 
 func collectSerializableVars(body *ast.BlockStmt) []varEntry {
-	seen := make(map[string]struct{})
-	var entries []varEntry
+	// 记录变量的首次出现位置与最后一次赋值表达式
+	firstPos := make(map[string]token.Pos)
+	lastExpr := make(map[string]ast.Expr)
+
 	ast.Inspect(body, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.AssignStmt:
@@ -787,9 +790,6 @@ func collectSerializableVars(body *ast.BlockStmt) []varEntry {
 				if !ok || ident.Name == "_" {
 					continue
 				}
-				if _, exists := seen[ident.Name]; exists {
-					continue
-				}
 				if i >= len(node.Rhs) {
 					continue
 				}
@@ -797,16 +797,16 @@ func collectSerializableVars(body *ast.BlockStmt) []varEntry {
 				if isNilExpr(rhs) {
 					continue
 				}
-				seen[ident.Name] = struct{}{}
-				entries = append(entries, varEntry{name: ident.Name, pos: ident.NamePos, expr: rhs})
+				if _, ok := firstPos[ident.Name]; !ok {
+					firstPos[ident.Name] = ident.NamePos
+				}
+				// 始终更新为最后一次赋值表达式
+				lastExpr[ident.Name] = rhs
 			}
 		case *ast.ValueSpec:
 			valueCount := len(node.Values)
 			for i, name := range node.Names {
 				if name.Name == "_" {
-					continue
-				}
-				if _, exists := seen[name.Name]; exists {
 					continue
 				}
 				if i >= valueCount {
@@ -816,17 +816,26 @@ func collectSerializableVars(body *ast.BlockStmt) []varEntry {
 				if isNilExpr(rhs) {
 					continue
 				}
-				seen[name.Name] = struct{}{}
-				entries = append(entries, varEntry{name: name.Name, pos: name.NamePos, expr: rhs})
+				if _, ok := firstPos[name.Name]; !ok {
+					firstPos[name.Name] = name.NamePos
+				}
+				// 记录为该变量的“最后一次”表达式
+				lastExpr[name.Name] = rhs
 			}
 		}
 		return true
 	})
 
+	// 汇总为切片，按首次出现位置排序，保持变量名顺序不变
+	entries := make([]varEntry, 0, len(firstPos))
+	for name, pos := range firstPos {
+		if expr, ok := lastExpr[name]; ok {
+			entries = append(entries, varEntry{name: name, pos: pos, expr: expr})
+		}
+	}
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].pos < entries[j].pos
 	})
-
 	return entries
 }
 
